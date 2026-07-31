@@ -1,11 +1,11 @@
-import { ExternalLink, Sparkles } from 'lucide-react'
+import { ExternalLink, FileText, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import type { PaperResult } from '@/api/types'
 import { CategoryBadge } from '@/components/papers/CategoryBadge'
 import { SimilarityBadge } from '@/components/papers/SimilarityBadge'
 import { Button } from '@/components/ui/button'
-import { arxivAbstractUrl } from '@/lib/arxiv'
+import { arxivAbstractUrl, arxivPdfUrl } from '@/lib/arxiv'
 import { formatAuthors, formatPublicationDate } from '@/lib/formatters'
 
 interface PaperSearchResultCardProps {
@@ -24,6 +24,7 @@ interface PaperSearchResultCardProps {
 
 export function PaperSearchResultCard({ paper, mode = 'search', similarPapersHref }: PaperSearchResultCardProps) {
   const arxivUrl = arxivAbstractUrl(paper.arxiv_id)
+  const pdfUrl = arxivPdfUrl(paper.arxiv_id)
   const actionLabel = mode === 'search' ? 'View Similar Papers' : 'Explore Similar Papers'
   const actionHref = similarPapersHref ?? `/papers/${paper.paper_id}/similar`
 
@@ -53,9 +54,17 @@ export function PaperSearchResultCard({ paper, mode = 'search', similarPapersHre
         </Button>
         {arxivUrl && (
           <Button asChild size="sm" variant="ghost" className="gap-1.5 text-muted-foreground">
-            <a href={arxivUrl} target="_blank" rel="noopener noreferrer" aria-label={`View "${paper.title}" on arXiv`}>
+            <a href={arxivUrl} target="_blank" rel="noopener noreferrer" aria-label={`View "${paper.title}" on arXiv, opens in a new tab`}>
               <ExternalLink className="size-3.5" aria-hidden="true" />
-              arXiv
+              View on arXiv
+            </a>
+          </Button>
+        )}
+        {pdfUrl && (
+          <Button asChild size="sm" variant="ghost" className="gap-1.5 text-muted-foreground">
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open the PDF for "${paper.title}", opens in a new tab`}>
+              <FileText className="size-3.5" aria-hidden="true" />
+              Open PDF
             </a>
           </Button>
         )}

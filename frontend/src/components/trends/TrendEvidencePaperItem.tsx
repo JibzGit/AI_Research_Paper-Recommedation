@@ -1,8 +1,8 @@
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, FileText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import type { TrendEvidencePaper } from '@/api/types'
-import { arxivAbstractUrl } from '@/lib/arxiv'
+import { arxivAbstractUrl, arxivPdfUrl } from '@/lib/arxiv'
 import { formatPublicationDate } from '@/lib/formatters'
 
 interface TrendEvidencePaperItemProps {
@@ -12,9 +12,12 @@ interface TrendEvidencePaperItemProps {
 /** Deterministically-selected evidence, never an LLM-generated
  * explanation -- this item only ever displays fields that came straight
  * from a trend_evidence_papers/papers join (title, arXiv id, publication
- * date), the same posture as ClusterPaperCard. */
+ * date), the same posture as ClusterPaperCard. The title link doubles as
+ * this item's "Find Similar Papers" action, consistent with how every
+ * other compact paper listing in this app treats a title click. */
 export function TrendEvidencePaperItem({ paper }: TrendEvidencePaperItemProps) {
   const arxivUrl = arxivAbstractUrl(paper.arxiv_id)
+  const pdfUrl = arxivPdfUrl(paper.arxiv_id)
 
   return (
     <li className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3">
@@ -32,11 +35,23 @@ export function TrendEvidencePaperItem({ paper }: TrendEvidencePaperItemProps) {
             href={arxivUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={`View "${paper.title}" on arXiv`}
+            aria-label={`View "${paper.title}" on arXiv, opens in a new tab`}
             className="inline-flex items-center gap-1 rounded hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <ExternalLink className="size-3" aria-hidden="true" />
-            arXiv
+            View on arXiv
+          </a>
+        )}
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open the PDF for "${paper.title}", opens in a new tab`}
+            className="inline-flex items-center gap-1 rounded hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <FileText className="size-3" aria-hidden="true" />
+            Open PDF
           </a>
         )}
       </div>

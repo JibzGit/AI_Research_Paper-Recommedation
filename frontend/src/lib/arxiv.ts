@@ -10,3 +10,13 @@ export function arxivAbstractUrl(arxivId: string | null): string | null {
   if (!arxivId || !ARXIV_ID_PATTERN.test(arxivId)) return null
   return `https://arxiv.org/abs/${arxivId}`
 }
+
+/** Same validation as arxivAbstractUrl -- never fabricates a PDF link for
+ * an unset or malformed arxiv_id, and never invents one for a non-arXiv
+ * source (this corpus has no other external source with a full-text PDF).
+ * Points at arXiv's own hosted PDF, not anything downloaded or proxied by
+ * this application. */
+export function arxivPdfUrl(arxivId: string | null): string | null {
+  if (!arxivId || !ARXIV_ID_PATTERN.test(arxivId)) return null
+  return `https://arxiv.org/pdf/${arxivId}`
+}

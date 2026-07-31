@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -6,7 +6,7 @@ import type { PaperDetail } from '@/api/types'
 import { CategoryBadge } from '@/components/papers/CategoryBadge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { arxivAbstractUrl } from '@/lib/arxiv'
+import { arxivAbstractUrl, arxivPdfUrl } from '@/lib/arxiv'
 import { formatPublicationDate } from '@/lib/formatters'
 
 const ABSTRACT_COLLAPSED_LENGTH = 320
@@ -31,6 +31,7 @@ export function SelectedPaperSummary({ paper }: SelectedPaperSummaryProps) {
   }, [paper.paper_id])
 
   const arxivUrl = arxivAbstractUrl(paper.arxiv_id)
+  const pdfUrl = arxivPdfUrl(paper.arxiv_id)
   const isLongAbstract = paper.abstract.length > ABSTRACT_COLLAPSED_LENGTH
   const showFullAbstract = abstractExpanded || !isLongAbstract
 
@@ -73,14 +74,24 @@ export function SelectedPaperSummary({ paper }: SelectedPaperSummaryProps) {
 
       {paper.authors.length > 0 && <p className="text-sm text-muted-foreground">{paper.authors.join(', ')}</p>}
 
-      {arxivUrl && (
-        <Button asChild variant="outline" size="sm" className="w-fit gap-1.5">
-          <a href={arxivUrl} target="_blank" rel="noopener noreferrer" aria-label={`View "${paper.title}" on arXiv`}>
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-            View on arXiv
-          </a>
-        </Button>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {arxivUrl && (
+          <Button asChild variant="outline" size="sm" className="w-fit gap-1.5">
+            <a href={arxivUrl} target="_blank" rel="noopener noreferrer" aria-label={`View "${paper.title}" on arXiv, opens in a new tab`}>
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+              View on arXiv
+            </a>
+          </Button>
+        )}
+        {pdfUrl && (
+          <Button asChild variant="outline" size="sm" className="w-fit gap-1.5">
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open the PDF for "${paper.title}", opens in a new tab`}>
+              <FileText className="size-3.5" aria-hidden="true" />
+              Open PDF
+            </a>
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

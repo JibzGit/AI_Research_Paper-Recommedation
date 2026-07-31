@@ -1,4 +1,4 @@
-import { ExternalLink, Sparkles } from 'lucide-react'
+import { ExternalLink, FileText, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import type { ClusterPaper } from '@/api/types'
@@ -6,7 +6,7 @@ import { ClusterMembershipBadge } from '@/components/clusters/ClusterMembershipB
 import { UnclusteredBadge } from '@/components/clusters/UnclusteredBadge'
 import { CategoryBadge } from '@/components/papers/CategoryBadge'
 import { Button } from '@/components/ui/button'
-import { arxivAbstractUrl } from '@/lib/arxiv'
+import { arxivAbstractUrl, arxivPdfUrl } from '@/lib/arxiv'
 import { formatAuthors, formatPublicationDate } from '@/lib/formatters'
 
 interface ClusterPaperCardProps {
@@ -29,6 +29,7 @@ interface ClusterPaperCardProps {
  * non-noise, /clusters/noise is always noise). */
 export function ClusterPaperCard({ paper, mode = 'cluster' }: ClusterPaperCardProps) {
   const arxivUrl = arxivAbstractUrl(paper.arxiv_id)
+  const pdfUrl = arxivPdfUrl(paper.arxiv_id)
 
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-panel">
@@ -56,9 +57,17 @@ export function ClusterPaperCard({ paper, mode = 'cluster' }: ClusterPaperCardPr
         </Button>
         {arxivUrl && (
           <Button asChild size="sm" variant="ghost" className="gap-1.5 text-muted-foreground">
-            <a href={arxivUrl} target="_blank" rel="noopener noreferrer" aria-label={`View "${paper.title}" on arXiv`}>
+            <a href={arxivUrl} target="_blank" rel="noopener noreferrer" aria-label={`View "${paper.title}" on arXiv, opens in a new tab`}>
               <ExternalLink className="size-3.5" aria-hidden="true" />
-              arXiv
+              View on arXiv
+            </a>
+          </Button>
+        )}
+        {pdfUrl && (
+          <Button asChild size="sm" variant="ghost" className="gap-1.5 text-muted-foreground">
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open the PDF for "${paper.title}", opens in a new tab`}>
+              <FileText className="size-3.5" aria-hidden="true" />
+              Open PDF
             </a>
           </Button>
         )}
