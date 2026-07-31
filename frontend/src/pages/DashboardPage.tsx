@@ -1,4 +1,5 @@
-import { Boxes, FileText, Layers, Network, Radar, Shuffle, Sparkles } from 'lucide-react'
+import { Boxes, FileText, LineChart, Layers, Network, Radar, Shuffle, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import { ClusterDistributionChart } from '@/components/charts/ClusterDistributionChart'
 import { ClusterCard } from '@/components/clusters/ClusterCard'
@@ -8,18 +9,22 @@ import { ErrorState } from '@/components/common/ErrorState'
 import { CardSkeleton, ChartSkeleton, StatCardSkeleton } from '@/components/common/LoadingSkeleton'
 import { StatCard } from '@/components/common/StatCard'
 import { RepresentativePapersSection } from '@/components/papers/RepresentativePapersSection'
+import { Button } from '@/components/ui/button'
 import { useClusters } from '@/hooks/useClusters'
 import { usePlatformOverview } from '@/hooks/usePlatformOverview'
+import { useTrendsOverview } from '@/hooks/useTrendsOverview'
 import { getClusterEmptyMessage } from '@/lib/clusterEmptyState'
 
 type OverviewQuery = ReturnType<typeof usePlatformOverview>
 type ClustersQuery = ReturnType<typeof useClusters>
+type TrendsOverviewQuery = ReturnType<typeof useTrendsOverview>
 
 const LEADING_CLUSTERS_COUNT = 6
 
 export function DashboardPage() {
   const overviewQuery = usePlatformOverview()
   const clustersQuery = useClusters()
+  const trendsOverviewQuery = useTrendsOverview()
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,6 +62,19 @@ export function DashboardPage() {
           Leading research clusters
         </h3>
         <ClustersSection clustersQuery={clustersQuery} />
+      </section>
+
+      <section aria-label="Research trends">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <LineChart className="size-4 text-accent-blue" aria-hidden="true" />
+            Research Trends
+          </h3>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/trends">View all trends</Link>
+          </Button>
+        </div>
+        <TrendsSummarySection trendsOverviewQuery={trendsOverviewQuery} />
       </section>
 
       <section aria-label="Representative papers from leading clusters">
@@ -184,6 +202,51 @@ function ClustersSection({ clustersQuery }: { clustersQuery: ClustersQuery }) {
       {leadingClusters.map((cluster) => (
         <ClusterCard key={cluster.cluster_id} cluster={cluster} />
       ))}
+    </div>
+  )
+}
+
+/** Degrades gracefully on 503 ("no successful trend run yet") -- shown as
+ * a quiet empty state, not an alarming ErrorState, since this is expected
+ * on a fresh install and shouldn't read as the dashboard being broken.
+ * Any other failure (network, 5xx) still surfaces through ErrorState like
+ * every other dashboard section. */
+function TrendsSummarySection({ trendsOverviewQuery }: { trendsOverviewQuery: TrendsOverviewQuery }) {
+  if (trendsOverviewQuery.isLoading) {
+    return (
+      <div className="grid grid-cols-3 gap-3" aria-busy="true" aria-live="polite">
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+      </div>
+    )
+  }
+
+  if (trendsOverviewQuery.isError) {
+    const error = trendsOverviewQuery.error
+    if (error?.status === 503) {
+      return <EmptyState icon={LineChart} title="Trend analysis not yet available" description={error.detail} />
+    }
+    return <ErrorState error={error ?? new Error('Failed to load trend overview')} onRetry={() => void trendsOverviewQuery.refetch()} />
+  }
+
+  const data = trendsOverviewQuery.data
+  if (!data) return null
+
+  const emergingCount = (data.cluster_summary.classification_counts.Emerging ?? 0) + (data.category_summary.classification_counts.Emerging ?? 0)
+  const stableCount = (data.cluster_summary.classification_counts.Stable ?? 0) + (data.category_summary.classification_counts.Stable ?? 0)
+  const coolingCount = (data.cluster_summary.classification_counts.Cooling ?? 0) + (data.category_summary.classification_counts.Cooling ?? 0)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Emerging" value={emergingCount} icon={TrendingUp} accent="green" />
+        <StatCard label="Stable" value={stableCount} icon={LineChart} accent="blue" />
+        <StatCard label="Cooling" value={coolingCount} icon={TrendingDown} accent="orange" />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {data.trend_context.trend_mode_label}: comparing the corpus's two ingestion cohorts, not a continuous publication trend.
+      </p>
     </div>
   )
 }

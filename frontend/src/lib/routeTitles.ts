@@ -2,6 +2,8 @@ const TITLES_BY_PREFIX: Array<{ prefix: string; title: string }> = [
   { prefix: '/clusters/noise', title: 'Unclustered Papers' },
   { prefix: '/clusters/', title: 'Cluster Detail' },
   { prefix: '/clusters', title: 'Research Clusters' },
+  { prefix: '/trends/', title: 'Trend Detail' },
+  { prefix: '/trends', title: 'Research Trends' },
   { prefix: '/search', title: 'Paper Search' },
   { prefix: '/settings', title: 'Settings' },
   { prefix: '/trending', title: 'Trending Papers' },

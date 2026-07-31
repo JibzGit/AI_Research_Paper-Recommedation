@@ -16,6 +16,8 @@ const SimilarPapersPage = lazy(() => import('@/pages/SimilarPapersPage').then((m
 const ClustersPage = lazy(() => import('@/pages/ClustersPage').then((m) => ({ default: m.ClustersPage })))
 const ClusterDetailPage = lazy(() => import('@/pages/ClusterDetailPage').then((m) => ({ default: m.ClusterDetailPage })))
 const NoisePapersPage = lazy(() => import('@/pages/NoisePapersPage').then((m) => ({ default: m.NoisePapersPage })))
+const TrendsPage = lazy(() => import('@/pages/TrendsPage').then((m) => ({ default: m.TrendsPage })))
+const TrendEntityDetailPage = lazy(() => import('@/pages/TrendEntityDetailPage').then((m) => ({ default: m.TrendEntityDetailPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const ComingSoonPage = lazy(() => import('@/components/common/ComingSoonPage').then((m) => ({ default: m.ComingSoonPage })))
@@ -36,6 +38,9 @@ function App() {
             load-bearing here the way it is in the FastAPI route table. */}
         <Route path="/clusters/noise" element={<NoisePapersPage />} />
         <Route path="/clusters/:clusterId" element={<ClusterDetailPage />} />
+
+        <Route path="/trends" element={<TrendsPage />} />
+        <Route path="/trends/:entityType/:entityId" element={<TrendEntityDetailPage />} />
 
         <Route path="/settings" element={<SettingsPage />} />
 

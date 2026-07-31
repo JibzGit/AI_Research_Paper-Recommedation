@@ -1,4 +1,4 @@
-import { AlertTriangle, WifiOff } from 'lucide-react'
+import { AlertTriangle, Clock, WifiOff } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,14 @@ function describeError(error: ApiError | Error): Message {
   if (error.status === 422) {
     return { title: 'Validation error', description: error.detail }
   }
+  if (error.status === 503) {
+    // Distinct from a real 5xx failure: the server is fine, but the
+    // requested feature has nothing to serve yet (e.g. no successful
+    // trend analysis run exists). The backend's own detail message
+    // explains this specifically -- shown as-is, not discarded in favor
+    // of a generic "something broke" description.
+    return { title: 'Not available yet', description: error.detail }
+  }
   if (error.status >= 500) {
     return { title: 'Server error', description: 'Something went wrong on the server. Try again shortly.' }
   }
@@ -42,7 +50,12 @@ function describeError(error: ApiError | Error): Message {
 
 export function ErrorState({ error, onRetry }: ErrorStateProps) {
   const { title, description } = describeError(error)
-  const Icon = error instanceof ApiError && error.status === 0 ? WifiOff : AlertTriangle
+  const Icon =
+    error instanceof ApiError && error.status === 0
+      ? WifiOff
+      : error instanceof ApiError && error.status === 503
+        ? Clock
+        : AlertTriangle
 
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-accent-error/30 bg-accent-error/5 p-8 text-center">

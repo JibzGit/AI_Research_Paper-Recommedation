@@ -110,6 +110,215 @@ export const clusterPapersResponse = { cluster_id: 2, total: 1, limit: 20, offse
 const noisePaperFixture = { ...clusterPaperFixture, membership_probability: 0.0, is_noise: true }
 export const noisePapersResponse = { clustering_run_id: RUN_ID, total: 1, limit: 20, offset: 0, papers: [noisePaperFixture] }
 
+// --- Trends (matches src/api/schemas/trends.py exactly) --------------------
+// Field values below deliberately echo the three documented real examples
+// from the approved trend-analysis design: Cluster 5 (11 vs 11 -> Stable),
+// Cluster 0 (0 vs 6 -> Emerging), Cluster 4 (14 vs 0 -> Cooling).
+
+const TREND_RUN_ID = 'b79dd345-438d-46f3-876f-3aa5e8c35255'
+
+export const trendContextFixture = {
+  run_id: TREND_RUN_ID,
+  calculation_version: 'trend-v1.0',
+  requested_trend_mode: 'historical',
+  effective_trend_mode: 'historical',
+  trend_mode_label: 'Historical Cohort Comparison',
+  freshness_status: 'PARTIALLY_CURRENT',
+  status: 'SUCCEEDED',
+  window_granularity: 'snapshot',
+  comparison_period_start: '2016-01-01T00:00:00Z',
+  comparison_period_end: '2016-01-12T00:00:00Z',
+  recent_period_start: '2026-07-27T00:00:00Z',
+  recent_period_end: '2026-07-28T00:00:00Z',
+  total_canonical_papers: 169,
+  calculated_at: '2026-07-31T06:45:22Z',
+}
+
+export const trendOverviewMessage =
+  'These results are a Historical Cohort Comparison, not a continuous publication trend. Comparison cohort: papers published 2016-01-01 to 2016-01-11. Recent cohort: papers published 2026-07-27 to 2026-07-27.'
+
+function makeTrendResult({
+  entityType,
+  entityId,
+  entityName,
+  recentCount,
+  previousCount,
+  growthRate,
+  isNewActivity,
+  trendScore,
+  classification,
+}: {
+  entityType: string
+  entityId: string
+  entityName: string
+  recentCount: number
+  previousCount: number
+  growthRate: number | null
+  isNewActivity: boolean
+  trendScore: number
+  classification: string
+}) {
+  return {
+    entity_type: entityType,
+    entity_id: entityId,
+    entity_name: entityName,
+    metrics: {
+      recent_paper_count: recentCount,
+      previous_paper_count: previousCount,
+      absolute_growth: recentCount - previousCount,
+      growth_rate: growthRate,
+      is_new_activity: isNewActivity,
+      recent_publication_share: 0.2,
+      previous_publication_share: 0.15,
+      share_change: 0.05,
+      acceleration: null,
+      consistency: 0.5,
+      recency_score: 0.97,
+      total_papers: recentCount + previousCount,
+    },
+    score: {
+      trend_type: entityType === 'cluster' ? 'cluster_growth' : 'category_growth',
+      trend_score: trendScore,
+      momentum_score: 0.5,
+      trend_classification: classification,
+      data_quality_level: 'LOW',
+      component_breakdown: {
+        recent_volume_component: 0.5,
+        growth_rate_component: 0.5,
+        share_change_component: 0.5,
+        acceleration_component: 0.5,
+        recency_component: 0.97,
+        consistency_component: 0.5,
+      },
+    },
+    evidence_summary: { recent_period_count: Math.min(recentCount, 10), comparison_period_count: Math.min(previousCount, 10) },
+  }
+}
+
+export const cluster0EmergingResult = makeTrendResult({
+  entityType: 'cluster',
+  entityId: '0',
+  entityName: 'Medical Imaging AI and Clinical Evaluation',
+  recentCount: 6,
+  previousCount: 0,
+  growthRate: null,
+  isNewActivity: true,
+  trendScore: 34,
+  classification: 'Emerging',
+})
+
+export const cluster4CoolingResult = makeTrendResult({
+  entityType: 'cluster',
+  entityId: '4',
+  entityName: 'Online Media Analysis and Event Retrieval',
+  recentCount: 0,
+  previousCount: 14,
+  growthRate: -1.0,
+  isNewActivity: false,
+  trendScore: 19,
+  classification: 'Cooling',
+})
+
+export const cluster5StableResult = makeTrendResult({
+  entityType: 'cluster',
+  entityId: '5',
+  entityName: 'Model Distillation and Policy Learning',
+  recentCount: 11,
+  previousCount: 11,
+  growthRate: 0.0,
+  isNewActivity: false,
+  trendScore: 68,
+  classification: 'Stable',
+})
+
+const categoryCoolingResult = makeTrendResult({
+  entityType: 'category',
+  entityId: 'cs.CV',
+  entityName: 'cs.CV',
+  recentCount: 12,
+  previousCount: 40,
+  growthRate: -0.7,
+  isNewActivity: false,
+  trendScore: 62,
+  classification: 'Cooling',
+})
+
+export const trendOverviewResponse = {
+  trend_context: trendContextFixture,
+  cluster_summary: {
+    entity_type: 'cluster',
+    total_entities: 10,
+    classification_counts: { Cooling: 8, Emerging: 1, Stable: 1 },
+    data_quality_counts: { LOW: 10 },
+  },
+  category_summary: {
+    entity_type: 'category',
+    total_entities: 30,
+    classification_counts: { Cooling: 8, 'Insufficient Data': 22 },
+    data_quality_counts: { LOW: 8, INSUFFICIENT: 22 },
+  },
+  data_quality_summary: { LOW: 18, INSUFFICIENT: 22 },
+  top_emerging: [cluster0EmergingResult],
+  top_stable: [cluster5StableResult],
+  top_cooling: [cluster4CoolingResult, categoryCoolingResult],
+  message: trendOverviewMessage,
+}
+
+export const clusterTrendsListResponse = {
+  trend_context: trendContextFixture,
+  results: [cluster0EmergingResult, cluster5StableResult, cluster4CoolingResult],
+  total: 10,
+  limit: 20,
+  offset: 0,
+}
+
+export const categoryTrendsListResponse = {
+  trend_context: trendContextFixture,
+  results: [categoryCoolingResult],
+  total: 30,
+  limit: 20,
+  offset: 0,
+}
+
+const cluster0EvidencePaper = {
+  paper_id: PAPER_ID,
+  title: 'Evidence Attribution in Visual Document Understanding',
+  arxiv_id: '2607.24651',
+  publication_date: '2026-07-27T16:49:36Z',
+  role: 'recent_period',
+}
+
+export const cluster0TrendDetailResponse = {
+  trend_context: trendContextFixture,
+  result: cluster0EmergingResult,
+  recent_period_evidence: [cluster0EvidencePaper],
+  comparison_period_evidence: [],
+}
+
+export const cluster4TrendDetailResponse = {
+  trend_context: trendContextFixture,
+  result: cluster4CoolingResult,
+  recent_period_evidence: [],
+  comparison_period_evidence: [{ ...cluster0EvidencePaper, role: 'comparison_period', publication_date: '2016-01-04T07:16:35Z' }],
+}
+
+export const cluster5TrendDetailResponse = {
+  trend_context: trendContextFixture,
+  result: cluster5StableResult,
+  recent_period_evidence: [cluster0EvidencePaper],
+  comparison_period_evidence: [{ ...cluster0EvidencePaper, role: 'comparison_period', publication_date: '2016-01-04T15:09:38Z' }],
+}
+
+export const emergingListResponse = { trend_context: trendContextFixture, results: [cluster0EmergingResult], total: 1, limit: 20, offset: 0 }
+export const coolingListResponse = {
+  trend_context: trendContextFixture,
+  results: [cluster4CoolingResult, categoryCoolingResult],
+  total: 2,
+  limit: 20,
+  offset: 0,
+}
+export const stableListResponse = { trend_context: trendContextFixture, results: [cluster5StableResult], total: 1, limit: 20, offset: 0 }
+
 // Registration order matters, exactly like the backend's own route table:
 // a literal path (/papers/search, /clusters/noise) must be listed before a
 // same-shape dynamic path (/papers/:paperId, /clusters/:clusterId) or MSW
@@ -125,4 +334,17 @@ export const handlers = [
   http.get(`${API_BASE}/api/v1/clusters/noise`, () => HttpResponse.json(noisePapersResponse)),
   http.get(`${API_BASE}/api/v1/clusters/:clusterId/papers`, () => HttpResponse.json(clusterPapersResponse)),
   http.get(`${API_BASE}/api/v1/clusters/:clusterId`, () => HttpResponse.json(clusterDetailFixture)),
+
+  http.get(`${API_BASE}/api/v1/trends/overview`, () => HttpResponse.json(trendOverviewResponse)),
+  http.get(`${API_BASE}/api/v1/trends/clusters`, () => HttpResponse.json(clusterTrendsListResponse)),
+  http.get(`${API_BASE}/api/v1/trends/categories`, () => HttpResponse.json(categoryTrendsListResponse)),
+  http.get(`${API_BASE}/api/v1/trends/emerging`, () => HttpResponse.json(emergingListResponse)),
+  http.get(`${API_BASE}/api/v1/trends/cooling`, () => HttpResponse.json(coolingListResponse)),
+  http.get(`${API_BASE}/api/v1/trends/stable`, () => HttpResponse.json(stableListResponse)),
+  http.get(`${API_BASE}/api/v1/trends/:entityType/:entityId`, ({ params }) => {
+    if (params.entityId === '0') return HttpResponse.json(cluster0TrendDetailResponse)
+    if (params.entityId === '4') return HttpResponse.json(cluster4TrendDetailResponse)
+    if (params.entityId === '5') return HttpResponse.json(cluster5TrendDetailResponse)
+    return HttpResponse.json({ detail: `no trend result for ${params.entityType}=${params.entityId}` }, { status: 404 })
+  }),
 ]

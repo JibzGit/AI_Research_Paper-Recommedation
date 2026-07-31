@@ -194,6 +194,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trends/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description Historical Cohort Comparison summary.
+         *
+         *     Every value here is read from a persisted trend_analysis_runs /
+         *     trend_entity_snapshots / trend_scores row -- nothing is recalculated
+         *     on this request. Returns classification and data-quality breakdowns
+         *     for clusters and categories, the top Emerging/Stable/Cooling entities,
+         *     and a mandatory `message` explaining that these results compare two
+         *     disjoint ingestion cohorts (the corpus's January 2016 and July 2026
+         *     batches), not a continuous publication trend. `trend_context.
+         *     effective_trend_mode` is always "historical" in v1 -- Current Trend
+         *     Mode does not exist yet, and this endpoint never claims otherwise.
+         *
+         *     503 when no run has ever completed successfully (the feature has no
+         *     data yet, not a missing resource). 404 only when an explicit `run_id`
+         *     was given and doesn't exist.
+         */
+        get: operations["overview_api_v1_trends_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trends/clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Clusters
+         * @description Cluster-level Historical Cohort Comparison results (trend_type
+         *     "cluster_growth"). Ranked by trend_score descending by default, with
+         *     entity_name/entity_id as fixed tie-breakers regardless of sort_by --
+         *     ordering is always fully deterministic, never left to incidental
+         *     database row order.
+         */
+        get: operations["clusters_api_v1_trends_clusters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trends/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Categories
+         * @description Category-level (arXiv primary category) Historical Cohort
+         *     Comparison results (trend_type "category_growth"). Same filtering,
+         *     pagination, and deterministic-ordering behavior as /trends/clusters.
+         */
+        get: operations["categories_api_v1_trends_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trends/emerging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Emerging
+         * @description Entities classified Emerging under the resolved run, across
+         *     clusters and categories together unless entity_type narrows it.
+         */
+        get: operations["emerging_api_v1_trends_emerging_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trends/cooling": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cooling
+         * @description Entities classified Cooling under the resolved run. Same shape as
+         *     /trends/emerging.
+         */
+        get: operations["cooling_api_v1_trends_cooling_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trends/stable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stable
+         * @description Entities classified Stable under the resolved run. Added for
+         *     symmetry with /trends/emerging and /trends/cooling -- reuses the exact
+         *     same query function, parametrized only by classification.
+         */
+        get: operations["stable_api_v1_trends_stable_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trends/{entity_type}/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entity Detail
+         * @description Full detail for one cluster or category: metrics, score, and every
+         *     persisted evidence paper split by role (recent_period vs
+         *     comparison_period), each ordered deterministically by
+         *     (publication_date, paper_id). No evidence explanation is generated or
+         *     inferred here -- every field is a direct join to trend_evidence_papers
+         *     and papers.
+         */
+        get: operations["entity_detail_api_v1_trends__entity_type___entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -335,6 +504,21 @@ export interface components {
             /** Clustering Run Id */
             clustering_run_id: string;
         };
+        /** EntityTypeSummary */
+        EntityTypeSummary: {
+            /** Entity Type */
+            entity_type: string;
+            /** Total Entities */
+            total_entities: number;
+            /** Classification Counts */
+            classification_counts: {
+                [key: string]: number;
+            };
+            /** Data Quality Counts */
+            data_quality_counts: {
+                [key: string]: number;
+            };
+        };
         /**
          * ErrorResponse
          * @description Matches the exact JSON shape every registered exception handler in
@@ -471,6 +655,201 @@ export interface components {
             count: number;
             /** Results */
             results: components["schemas"]["PaperResult"][];
+        };
+        /**
+         * TrendContext
+         * @description Attached to every trend response, list or detail. effective_trend_
+         *     mode is always "historical" in v1 -- there is no code path that
+         *     produces a "current" trend result yet (see trends/freshness.py) -- and
+         *     trend_mode_label is always "Historical Cohort Comparison" for the same
+         *     reason, never "Trending Now"/"Latest AI Trends"/any current-momentum
+         *     phrasing. calculated_at is the persisted run's completed_at, i.e. when
+         *     these numbers were actually computed, not when this request ran --
+         *     nothing in this schema is ever computed live.
+         */
+        TrendContext: {
+            /** Run Id */
+            run_id: string;
+            /** Calculation Version */
+            calculation_version: string;
+            /** Requested Trend Mode */
+            requested_trend_mode: string;
+            /** Effective Trend Mode */
+            effective_trend_mode: string;
+            /** Trend Mode Label */
+            trend_mode_label: string;
+            /** Freshness Status */
+            freshness_status: string;
+            /** Status */
+            status: string;
+            /** Window Granularity */
+            window_granularity: string;
+            /**
+             * Comparison Period Start
+             * Format: date-time
+             */
+            comparison_period_start: string;
+            /**
+             * Comparison Period End
+             * Format: date-time
+             */
+            comparison_period_end: string;
+            /**
+             * Recent Period Start
+             * Format: date-time
+             */
+            recent_period_start: string;
+            /**
+             * Recent Period End
+             * Format: date-time
+             */
+            recent_period_end: string;
+            /** Total Canonical Papers */
+            total_canonical_papers: number;
+            /** Calculated At */
+            calculated_at: string | null;
+        };
+        /** TrendDetailResponse */
+        TrendDetailResponse: {
+            trend_context: components["schemas"]["TrendContext"];
+            result: components["schemas"]["TrendResult"];
+            /** Recent Period Evidence */
+            recent_period_evidence: components["schemas"]["TrendEvidencePaper"][];
+            /** Comparison Period Evidence */
+            comparison_period_evidence: components["schemas"]["TrendEvidencePaper"][];
+        };
+        /**
+         * TrendEvidencePaper
+         * @description One paper backing a score. Never LLM-generated -- every field here
+         *     is a plain join from trend_evidence_papers to papers, ordered
+         *     deterministically by the same (publication_date, paper_id) convention
+         *     the pipeline used to select it in the first place.
+         */
+        TrendEvidencePaper: {
+            /** Paper Id */
+            paper_id: string;
+            /** Title */
+            title: string;
+            /** Arxiv Id */
+            arxiv_id: string | null;
+            /** Publication Date */
+            publication_date: string | null;
+            /** Role */
+            role: string;
+        };
+        /** TrendEvidenceSummary */
+        TrendEvidenceSummary: {
+            /** Recent Period Count */
+            recent_period_count: number;
+            /** Comparison Period Count */
+            comparison_period_count: number;
+        };
+        /** TrendListResponse */
+        TrendListResponse: {
+            trend_context: components["schemas"]["TrendContext"];
+            /** Results */
+            results: components["schemas"]["TrendResult"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
+         * TrendMetrics
+         * @description The raw counts/windows behind a score -- mirrors
+         *     TrendEntitySnapshot exactly, including its nullability: growth_rate/
+         *     share_change/acceleration/consistency/recency_score are all legitimate
+         *     nulls (undefined growth rate, no comparison-period baseline, fewer
+         *     than 3 windows of history), never coerced to 0 or omitted.
+         */
+        TrendMetrics: {
+            /** Recent Paper Count */
+            recent_paper_count: number;
+            /** Previous Paper Count */
+            previous_paper_count: number;
+            /** Absolute Growth */
+            absolute_growth: number;
+            /** Growth Rate */
+            growth_rate: number | null;
+            /** Is New Activity */
+            is_new_activity: boolean;
+            /** Recent Publication Share */
+            recent_publication_share: number | null;
+            /** Previous Publication Share */
+            previous_publication_share: number | null;
+            /** Share Change */
+            share_change: number | null;
+            /** Acceleration */
+            acceleration: boolean | null;
+            /** Consistency */
+            consistency: number | null;
+            /** Recency Score */
+            recency_score: number | null;
+            /** Total Papers */
+            total_papers: number;
+        };
+        /**
+         * TrendOverviewResponse
+         * @description message is the prominent, non-optional historical-cohort warning
+         *     required for every overview response -- explains in plain language
+         *     that these results compare two ingestion cohorts (Comparison cohort:
+         *     the January 2016 batch; Recent cohort: the July 2026 batch), not a
+         *     continuous publication trend.
+         */
+        TrendOverviewResponse: {
+            trend_context: components["schemas"]["TrendContext"];
+            cluster_summary: components["schemas"]["EntityTypeSummary"];
+            category_summary: components["schemas"]["EntityTypeSummary"];
+            /** Data Quality Summary */
+            data_quality_summary: {
+                [key: string]: number;
+            };
+            /** Top Emerging */
+            top_emerging: components["schemas"]["TrendResult"][];
+            /** Top Stable */
+            top_stable: components["schemas"]["TrendResult"][];
+            /** Top Cooling */
+            top_cooling: components["schemas"]["TrendResult"][];
+            /** Message */
+            message: string;
+        };
+        /** TrendResult */
+        TrendResult: {
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Name */
+            entity_name: string;
+            metrics: components["schemas"]["TrendMetrics"];
+            score: components["schemas"]["TrendScore"];
+            evidence_summary: components["schemas"]["TrendEvidenceSummary"];
+        };
+        /**
+         * TrendScore
+         * @description Mirrors the persisted TrendScore row for one (entity, trend_type)
+         *     pair. trend_type is always "cluster_growth" or "category_growth" in
+         *     v1 -- "citation_momentum"/"paper_momentum" are reserved but never
+         *     populated (no repeated metric-snapshot dates exist yet to measure a
+         *     citation change from).
+         */
+        TrendScore: {
+            /** Trend Type */
+            trend_type: string;
+            /** Trend Score */
+            trend_score: number;
+            /** Momentum Score */
+            momentum_score: number | null;
+            /** Trend Classification */
+            trend_classification: string;
+            /** Data Quality Level */
+            data_quality_level: string;
+            /** Component Breakdown */
+            component_breakdown: {
+                [key: string]: unknown;
+            };
         };
         /** ValidationError */
         ValidationError: {
@@ -819,6 +1198,379 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryListResponse"];
+                };
+            };
+        };
+    };
+    overview_api_v1_trends_overview_get: {
+        parameters: {
+            query?: {
+                /** @description Explicit trend_analysis_runs.id; defaults to the latest SUCCEEDED run. */
+                run_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendOverviewResponse"];
+                };
+            };
+            /** @description run_id does not match any trend analysis run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    clusters_api_v1_trends_clusters_get: {
+        parameters: {
+            query?: {
+                run_id?: string | null;
+                classification?: ("Emerging" | "Accelerating" | "Consistently Active" | "Stable" | "Cooling" | "Insufficient Data") | null;
+                data_quality?: ("HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT") | null;
+                min_score?: number | null;
+                limit?: number;
+                offset?: number;
+                sort_by?: "trend_score" | "growth_rate" | "recent_paper_count" | "entity_name";
+                sort_order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendListResponse"];
+                };
+            };
+            /** @description run_id does not match any trend analysis run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    categories_api_v1_trends_categories_get: {
+        parameters: {
+            query?: {
+                run_id?: string | null;
+                classification?: ("Emerging" | "Accelerating" | "Consistently Active" | "Stable" | "Cooling" | "Insufficient Data") | null;
+                data_quality?: ("HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT") | null;
+                min_score?: number | null;
+                limit?: number;
+                offset?: number;
+                sort_by?: "trend_score" | "growth_rate" | "recent_paper_count" | "entity_name";
+                sort_order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendListResponse"];
+                };
+            };
+            /** @description run_id does not match any trend analysis run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    emerging_api_v1_trends_emerging_get: {
+        parameters: {
+            query?: {
+                /** @description Restrict to 'cluster' or 'category'; omit for both. */
+                entity_type?: ("cluster" | "category") | null;
+                run_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendListResponse"];
+                };
+            };
+            /** @description run_id does not match any trend analysis run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cooling_api_v1_trends_cooling_get: {
+        parameters: {
+            query?: {
+                /** @description Restrict to 'cluster' or 'category'; omit for both. */
+                entity_type?: ("cluster" | "category") | null;
+                run_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendListResponse"];
+                };
+            };
+            /** @description run_id does not match any trend analysis run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stable_api_v1_trends_stable_get: {
+        parameters: {
+            query?: {
+                /** @description Restrict to 'cluster' or 'category'; omit for both. */
+                entity_type?: ("cluster" | "category") | null;
+                run_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendListResponse"];
+                };
+            };
+            /** @description run_id does not match any trend analysis run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    entity_detail_api_v1_trends__entity_type___entity_id__get: {
+        parameters: {
+            query?: {
+                run_id?: string | null;
+            };
+            header?: never;
+            path: {
+                entity_type: "cluster" | "category";
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendDetailResponse"];
+                };
+            };
+            /** @description No trend result for this entity under the resolved run */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No successful trend analysis run is available yet */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

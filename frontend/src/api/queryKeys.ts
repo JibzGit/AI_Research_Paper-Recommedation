@@ -35,6 +35,24 @@ export interface NoisePapersParams {
   category?: string
 }
 
+export interface TrendEntityListParams {
+  runId?: string
+  classification?: string
+  dataQuality?: string
+  minScore?: number
+  limit?: number
+  offset?: number
+  sortBy?: string
+  sortOrder?: string
+}
+
+export interface TrendClassificationListParams {
+  entityType?: string
+  runId?: string
+  limit?: number
+  offset?: number
+}
+
 export const queryKeys = {
   health: () => ['health'] as const,
   statsOverview: () => ['stats', 'overview'] as const,
@@ -50,4 +68,12 @@ export const queryKeys = {
   clusterPapers: (clusterId: number | undefined, params?: ClusterPapersParams) =>
     ['clusters', clusterId ?? 'unset', 'papers', params ?? {}] as const,
   noisePapers: (params?: NoisePapersParams) => ['clusters', 'noise', params ?? {}] as const,
+
+  trendsOverview: (runId?: string) => ['trends', 'overview', runId ?? 'latest'] as const,
+  trendEntityList: (entityType: 'cluster' | 'category', params?: TrendEntityListParams) =>
+    ['trends', entityType, 'list', params ?? {}] as const,
+  trendEntityDetail: (entityType: string | undefined, entityId: string | undefined, runId?: string) =>
+    ['trends', entityType ?? 'unset', entityId ?? 'unset', 'detail', runId ?? 'latest'] as const,
+  trendClassificationList: (classification: string, params?: TrendClassificationListParams) =>
+    ['trends', 'classification', classification, params ?? {}] as const,
 }

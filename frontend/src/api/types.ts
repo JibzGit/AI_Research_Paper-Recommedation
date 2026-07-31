@@ -24,3 +24,20 @@ export type SimilarPapersResponse = components['schemas']['SimilarPapersResponse
 export type PaperResult = components['schemas']['PaperResult']
 export type PaperDetail = components['schemas']['PaperDetail']
 export type ErrorResponse = components['schemas']['ErrorResponse']
+
+export type TrendContext = components['schemas']['TrendContext']
+export type TrendMetrics = components['schemas']['TrendMetrics']
+export type TrendScore = components['schemas']['TrendScore']
+export type TrendEvidencePaper = components['schemas']['TrendEvidencePaper']
+export type TrendEvidenceSummary = components['schemas']['TrendEvidenceSummary']
+export type TrendResult = components['schemas']['TrendResult']
+export type EntityTypeSummary = components['schemas']['EntityTypeSummary']
+export type TrendOverviewResponse = components['schemas']['TrendOverviewResponse']
+export type TrendListResponse = components['schemas']['TrendListResponse']
+export type TrendDetailResponse = components['schemas']['TrendDetailResponse']
+
+export type TrendEntityType = 'cluster' | 'category'
+export type TrendClassification = 'Emerging' | 'Accelerating' | 'Consistently Active' | 'Stable' | 'Cooling' | 'Insufficient Data'
+export type TrendDataQuality = 'HIGH' | 'MEDIUM' | 'LOW' | 'INSUFFICIENT'
+export type TrendSortBy = 'trend_score' | 'growth_rate' | 'recent_paper_count' | 'entity_name'
+export type TrendSortOrder = 'asc' | 'desc'
