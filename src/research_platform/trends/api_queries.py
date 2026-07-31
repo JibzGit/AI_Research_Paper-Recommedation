@@ -9,6 +9,7 @@ nothing here recomputes a score, calls a pure trends module, or writes a
 row. Supports "cluster" and "category" entity types only in v1.
 """
 import uuid
+from datetime import timedelta
 
 from sqlalchemy import func, select
 
@@ -380,10 +381,14 @@ def get_overview(session, run) -> dict:
     top_stable = _top_by_classification(session, run.id, classifications.STABLE, OVERVIEW_TOP_N)
     top_cooling = _top_by_classification(session, run.id, classifications.COOLING, OVERVIEW_TOP_N)
 
+    # *_period_end are exclusive upper bounds (trends/pipeline.py's
+    # resolve_cohort_windows() defines a window as [start, last_day + 1
+    # day)) -- subtract a day so the message names the actual last
+    # included date, not the day after the cohort ends.
     comparison_start = run.comparison_period_start.date().isoformat()
-    comparison_end = (run.comparison_period_end.date()).isoformat()
+    comparison_end = (run.comparison_period_end.date() - timedelta(days=1)).isoformat()
     recent_start = run.recent_period_start.date().isoformat()
-    recent_end = run.recent_period_end.date().isoformat()
+    recent_end = (run.recent_period_end.date() - timedelta(days=1)).isoformat()
     message = (
         "These results are a Historical Cohort Comparison, not a continuous publication trend. "
         f"Comparison cohort: papers published {comparison_start} to {comparison_end}. "
