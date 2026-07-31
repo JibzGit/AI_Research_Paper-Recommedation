@@ -1,15 +1,21 @@
-import { Boxes, FileText, LineChart, Layers, Network, Radar, Shuffle, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
+import { Boxes, FileText, LineChart, Layers, Network, Radar, Shuffle, Sparkles, Tags, TrendingDown, TrendingUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { ClusterDistributionChart } from '@/components/charts/ClusterDistributionChart'
+import { ClusterLegendTable } from '@/components/charts/ClusterLegendTable'
 import { ClusterCard } from '@/components/clusters/ClusterCard'
 import { CorpusSummaryPanel } from '@/components/common/CorpusSummaryPanel'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { CardSkeleton, ChartSkeleton, StatCardSkeleton } from '@/components/common/LoadingSkeleton'
 import { StatCard } from '@/components/common/StatCard'
+import { CategoryCoverageSection } from '@/components/dashboard/CategoryCoverageSection'
+import { CategoryVsClusterInfo } from '@/components/dashboard/CategoryVsClusterInfo'
 import { RepresentativePapersSection } from '@/components/papers/RepresentativePapersSection'
+import { HistoricalCohortWarning } from '@/components/trends/HistoricalCohortWarning'
+import { TrendLabelGuide } from '@/components/trends/TrendLabelGuide'
 import { Button } from '@/components/ui/button'
+import { useCategories } from '@/hooks/useCategories'
 import { useClusters } from '@/hooks/useClusters'
 import { usePlatformOverview } from '@/hooks/usePlatformOverview'
 import { useTrendsOverview } from '@/hooks/useTrendsOverview'
@@ -17,6 +23,7 @@ import { getClusterEmptyMessage } from '@/lib/clusterEmptyState'
 
 type OverviewQuery = ReturnType<typeof usePlatformOverview>
 type ClustersQuery = ReturnType<typeof useClusters>
+type CategoriesQuery = ReturnType<typeof useCategories>
 type TrendsOverviewQuery = ReturnType<typeof useTrendsOverview>
 
 const LEADING_CLUSTERS_COUNT = 6
@@ -24,48 +31,67 @@ const LEADING_CLUSTERS_COUNT = 6
 export function DashboardPage() {
   const overviewQuery = usePlatformOverview()
   const clustersQuery = useClusters()
+  const categoriesQuery = useCategories()
   const trendsOverviewQuery = useTrendsOverview()
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
-        <p className="text-sm text-muted-foreground">An overview of the research corpus and clustering state.</p>
+        <p className="text-sm text-muted-foreground">
+          An overview of the research corpus and clustering state. Use the search bar above to find specific papers.
+        </p>
       </div>
 
-      <StatsRow overviewQuery={overviewQuery} />
+      <StatsRow overviewQuery={overviewQuery} categoriesQuery={categoriesQuery} />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section aria-label="Cluster distribution" className="lg:col-span-2">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-            <Network className="size-4 text-accent-blue" aria-hidden="true" />
-            Cluster distribution
-          </h3>
-          <p className="sr-only">Paper count for each approved research cluster, plus unclustered papers.</p>
-          <ChartSection clustersQuery={clustersQuery} overviewQuery={overviewQuery} />
-        </section>
-
-        <section aria-label="Corpus summary">
-          {overviewQuery.data ? (
-            <CorpusSummaryPanel overview={overviewQuery.data} />
-          ) : overviewQuery.isError ? (
-            <ErrorState error={overviewQuery.error ?? new Error('Failed to load corpus summary')} onRetry={() => void overviewQuery.refetch()} />
-          ) : (
-            <StatCardSkeleton />
-          )}
-        </section>
-      </div>
-
-      <section aria-label="Leading research clusters">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-          <Layers className="size-4 text-accent-purple" aria-hidden="true" />
-          Leading research clusters
+      <section id="corpus-coverage" aria-label="Corpus coverage" className="flex scroll-mt-20 flex-col gap-4">
+        <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Tags className="size-4 text-accent-green" aria-hidden="true" />
+          Corpus coverage
         </h3>
-        <ClustersSection clustersQuery={clustersQuery} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <CategoryCoverageSection />
+          </div>
+          <div className="flex flex-col gap-4">
+            {overviewQuery.data ? (
+              <CorpusSummaryPanel overview={overviewQuery.data} />
+            ) : overviewQuery.isError ? (
+              <ErrorState error={overviewQuery.error ?? new Error('Failed to load corpus summary')} onRetry={() => void overviewQuery.refetch()} />
+            ) : (
+              <StatCardSkeleton />
+            )}
+          </div>
+        </div>
+        <CategoryVsClusterInfo />
       </section>
 
-      <section aria-label="Research trends">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="Cluster distribution" className="flex flex-col gap-4">
+        <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Network className="size-4 text-accent-blue" aria-hidden="true" />
+          Cluster distribution
+        </h3>
+        <p className="sr-only">Paper count for the largest approved research clusters, plus unclustered papers.</p>
+        <ChartSection clustersQuery={clustersQuery} overviewQuery={overviewQuery} />
+        <LegendSection clustersQuery={clustersQuery} />
+
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Layers className="size-4 text-accent-purple" aria-hidden="true" />
+              Leading research clusters
+            </h4>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/clusters">View all clusters</Link>
+            </Button>
+          </div>
+          <ClustersSection clustersQuery={clustersQuery} />
+        </div>
+      </section>
+
+      <section aria-label="Research trends" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
             <LineChart className="size-4 text-accent-blue" aria-hidden="true" />
             Research Trends
@@ -75,6 +101,7 @@ export function DashboardPage() {
           </Button>
         </div>
         <TrendsSummarySection trendsOverviewQuery={trendsOverviewQuery} />
+        <TrendLabelGuide />
       </section>
 
       <section aria-label="Representative papers from leading clusters">
@@ -88,15 +115,16 @@ export function DashboardPage() {
   )
 }
 
-function StatsRow({ overviewQuery }: { overviewQuery: OverviewQuery }) {
+function StatsRow({ overviewQuery, categoriesQuery }: { overviewQuery: OverviewQuery; categoriesQuery: CategoriesQuery }) {
   if (overviewQuery.isLoading) {
     return (
       <section
         aria-label="Platform statistics"
         aria-busy="true"
         aria-live="polite"
-        className="grid grid-cols-2 gap-3 md:grid-cols-5"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
       >
+        <StatCardSkeleton />
         <StatCardSkeleton />
         <StatCardSkeleton />
         <StatCardSkeleton />
@@ -126,24 +154,41 @@ function StatsRow({ overviewQuery }: { overviewQuery: OverviewQuery }) {
     overview.total_canonical_papers > 0 ? Math.round((overview.clustered_papers / overview.total_canonical_papers) * 100) : null
   const noisePercent =
     overview.total_canonical_papers > 0 ? Math.round((overview.noise_papers / overview.total_canonical_papers) * 100) : null
+  const categoryCount = categoriesQuery.data?.categories.length
 
   return (
-    <section aria-label="Platform statistics" className="grid grid-cols-2 gap-3 md:grid-cols-5">
-      <StatCard label="Total Papers" value={overview.total_canonical_papers} icon={FileText} accent="purple" hint="Canonical papers in the corpus" />
+    <section aria-label="Platform statistics" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <StatCard
+        label="Total Papers"
+        value={overview.total_canonical_papers}
+        icon={FileText}
+        accent="purple"
+        hint="Canonical papers in the corpus"
+        href="/search"
+      />
       <StatCard
         label="Embedded Papers"
         value={overview.embedded_papers}
         icon={Radar}
         accent="blue"
         hint={embeddedPercent === null ? 'No canonical papers yet' : `${embeddedPercent}% of corpus`}
+        href="/search"
       />
-      <StatCard label="Approved Clusters" value={overview.approved_clusters} icon={Boxes} accent="green" hint="From the latest clustering run" />
+      <StatCard
+        label="Approved Clusters"
+        value={overview.approved_clusters}
+        icon={Boxes}
+        accent="green"
+        hint="From the latest clustering run"
+        href="/clusters"
+      />
       <StatCard
         label="Clustered Papers"
         value={overview.clustered_papers}
         icon={Network}
         accent="orange"
         hint={clusteredPercent === null ? 'No canonical papers yet' : `${clusteredPercent}% of corpus`}
+        href="/clusters"
       />
       <StatCard
         label="Unclustered Papers"
@@ -151,6 +196,15 @@ function StatsRow({ overviewQuery }: { overviewQuery: OverviewQuery }) {
         icon={Shuffle}
         accent="purple"
         hint={noisePercent === null ? 'No canonical papers yet' : `${noisePercent}% of corpus`}
+        href="/clusters/noise"
+      />
+      <StatCard
+        label="Categories"
+        value={categoryCount ?? '—'}
+        icon={Tags}
+        accent="blue"
+        hint="arXiv categories represented"
+        href="#corpus-coverage"
       />
     </section>
   )
@@ -174,6 +228,11 @@ function ChartSection({ clustersQuery, overviewQuery }: { clustersQuery: Cluster
       />
     </div>
   )
+}
+
+function LegendSection({ clustersQuery }: { clustersQuery: ClustersQuery }) {
+  if (!clustersQuery.data || clustersQuery.data.clusters.length === 0) return null
+  return <ClusterLegendTable clusters={clustersQuery.data.clusters} />
 }
 
 function ClustersSection({ clustersQuery }: { clustersQuery: ClustersQuery }) {
@@ -238,15 +297,13 @@ function TrendsSummarySection({ trendsOverviewQuery }: { trendsOverviewQuery: Tr
   const coolingCount = (data.cluster_summary.classification_counts.Cooling ?? 0) + (data.category_summary.classification_counts.Cooling ?? 0)
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Emerging" value={emergingCount} icon={TrendingUp} accent="green" />
-        <StatCard label="Stable" value={stableCount} icon={LineChart} accent="blue" />
-        <StatCard label="Cooling" value={coolingCount} icon={TrendingDown} accent="orange" />
+        <StatCard label="Emerging" value={emergingCount} icon={TrendingUp} accent="green" href="/trends?classification=Emerging" />
+        <StatCard label="Stable" value={stableCount} icon={LineChart} accent="blue" href="/trends?classification=Stable" />
+        <StatCard label="Cooling" value={coolingCount} icon={TrendingDown} accent="orange" href="/trends?classification=Cooling" />
       </div>
-      <p className="text-xs text-muted-foreground">
-        {data.trend_context.trend_mode_label}: comparing the corpus's two ingestion cohorts, not a continuous publication trend.
-      </p>
+      <HistoricalCohortWarning trendContext={data.trend_context} message={data.message} />
     </div>
   )
 }
