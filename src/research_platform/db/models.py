@@ -669,3 +669,167 @@ class ClusterLabel(Base):
         ),
         Index("ix_cluster_labels_run_cluster", "clustering_run_id", "cluster_id"),
     )
+
+
+# --- Trend analysis -------------------------------------------------------
+
+class TrendAnalysisRun(Base):
+    """One row per trend-pipeline execution. Append-only, same convention
+    as ClusteringRun: a rerun always creates a new row rather than
+    overwriting a prior one, so trend history is never lost and every run
+    stays independently reproducible via `parameters` (the exact
+    thresholds/weights it used) and `calculation_version` (bumped on any
+    formula/weight change in trends/scoring.py etc.). requested_trend_mode
+    and effective_trend_mode are both persisted -- and can legitimately
+    differ once a `current` mode exists -- because a current-mode request
+    that is unavailable resolves to an explicit CURRENT_UNAVAILABLE state
+    (see trends/freshness.py) rather than silently substituting a
+    historical run in its place; this table only ever stores runs that
+    actually executed a comparison, never a placeholder for a rejected
+    current-mode request."""
+
+    __tablename__ = "trend_analysis_runs"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    calculation_version: Mapped[str] = mapped_column(Text, nullable=False)
+    requested_trend_mode: Mapped[str] = mapped_column(Text, nullable=False)
+    effective_trend_mode: Mapped[str] = mapped_column(Text, nullable=False)
+    freshness_status: Mapped[str] = mapped_column(Text, nullable=False)
+    corpus_latest_publication_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recent_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recent_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    comparison_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    comparison_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_granularity: Mapped[str] = mapped_column(Text, nullable=False)
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    total_canonical_papers: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'RUNNING'"))
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = created_at_col()
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_trend_analysis_runs_status_created", "status", "created_at"),
+    )
+
+
+class TrendEntitySnapshot(Base):
+    """One row per (trend_run_id, entity_type, entity_id) -- the raw
+    counts/windows behind a score, kept separate from TrendScore so a
+    given entity's underlying comparison data stays independently
+    queryable/testable from the scored outcome derived from it. entity_id
+    is TEXT (not a typed FK) deliberately: it holds a cluster_id (an
+    int, stored as its string form) for entity_type='cluster' and an arXiv
+    category code for entity_type='category' -- a single generic column
+    keeps this table entity-type-agnostic rather than needing a nullable
+    FK pair. ON DELETE CASCADE on trend_run_id: unlike most FKs in this
+    schema, a snapshot has no meaning independent of the run that produced
+    it, so removing a run should remove its snapshots rather than leaving
+    orphaned rows or requiring a separate cleanup step."""
+
+    __tablename__ = "trend_entity_snapshots"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    trend_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("trend_analysis_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(Text, nullable=False)
+    entity_id: Mapped[str] = mapped_column(Text, nullable=False)
+    entity_name: Mapped[str] = mapped_column(Text, nullable=False)
+    recent_paper_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_paper_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    absolute_growth: Mapped[int] = mapped_column(Integer, nullable=False)
+    growth_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_new_activity: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    recent_publication_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    previous_publication_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    share_change: Mapped[float | None] = mapped_column(Float, nullable=True)
+    acceleration: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    consistency: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recency_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_papers: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = created_at_col()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "trend_run_id", "entity_type", "entity_id", name="uq_trend_entity_snapshots_run_entity"
+        ),
+        Index("ix_trend_entity_snapshots_run_entity", "trend_run_id", "entity_type", "entity_id"),
+        Index("ix_trend_entity_snapshots_entity", "entity_type", "entity_id"),
+    )
+
+
+class TrendScore(Base):
+    """One row per (trend_run_id, entity_type, entity_id, trend_type) --
+    separate from TrendEntitySnapshot specifically so the distinct trend
+    *types* (publication_trend, cluster_growth, category_growth now;
+    citation_momentum/paper_momentum reserved but never inserted until a
+    second metric-snapshot date exists) never collapse into one row or one
+    vague "popularity" number. ON DELETE CASCADE on trend_run_id for the
+    same reason as TrendEntitySnapshot -- a score has no meaning outside
+    the run that produced it."""
+
+    __tablename__ = "trend_scores"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    trend_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("trend_analysis_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(Text, nullable=False)
+    entity_id: Mapped[str] = mapped_column(Text, nullable=False)
+    trend_type: Mapped[str] = mapped_column(Text, nullable=False)
+    trend_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    momentum_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trend_classification: Mapped[str] = mapped_column(Text, nullable=False)
+    data_quality_level: Mapped[str] = mapped_column(Text, nullable=False)
+    component_breakdown: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    generated_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    explanation_model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = created_at_col()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "trend_run_id", "entity_type", "entity_id", "trend_type",
+            name="uq_trend_scores_run_entity_type",
+        ),
+        CheckConstraint(
+            "trend_score >= 0 AND trend_score <= 100", name="ck_trend_scores_score_range"
+        ),
+        Index("ix_trend_scores_run_type", "trend_run_id", "trend_type"),
+        Index("ix_trend_scores_classification", "trend_classification"),
+    )
+
+
+class TrendEvidencePaper(Base):
+    """One row per (trend_score_id, paper_id, role) -- the papers backing
+    a given score, mirroring ClusterLabel.evidence (a JSONB blob) but as a
+    proper join table so evidence is queryable/joinable rather than opaque
+    JSON. role is restricted to the two windows a paper can be evidence
+    for -- there is no third role, so this is enforced with a CHECK rather
+    than left as free text the way open-ended status columns elsewhere in
+    this schema are. ON DELETE CASCADE on trend_score_id for the same
+    reason as the other trend child tables; paper_id intentionally has no
+    ondelete (consistent with every other paper_id FK in this schema --
+    canonical papers are never hard-deleted, only unlinked via
+    is_canonical/merged_into_id)."""
+
+    __tablename__ = "trend_evidence_papers"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    trend_score_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("trend_scores.id", ondelete="CASCADE"), nullable=False
+    )
+    paper_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("papers.id"), nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = created_at_col()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "trend_score_id", "paper_id", "role", name="uq_trend_evidence_papers_score_paper_role"
+        ),
+        CheckConstraint(
+            "role IN ('recent_period', 'comparison_period')", name="ck_trend_evidence_papers_role"
+        ),
+        Index("ix_trend_evidence_papers_score", "trend_score_id"),
+        Index("ix_trend_evidence_papers_paper", "paper_id"),
+    )
