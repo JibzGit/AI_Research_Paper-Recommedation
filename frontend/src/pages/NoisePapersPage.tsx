@@ -201,6 +201,7 @@ function NoisePapersSection({
           Updating…
         </span>
       )}
+      <h3 className="sr-only">Unclustered papers</h3>
       {data.papers.map((paper) => (
         <ClusterPaperCard key={paper.paper_id} paper={paper} mode="noise" />
       ))}

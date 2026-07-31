@@ -16,7 +16,7 @@ export function ConfidenceBadge({ value }: ConfidenceBadgeProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="gap-1 border-accent-blue/40 text-accent-blue">
+        <Badge tabIndex={0} variant="outline" className="gap-1 border-accent-blue/40 text-accent-blue">
           <Tag className="size-3" aria-hidden="true" />
           Label confidence {percent}%
         </Badge>

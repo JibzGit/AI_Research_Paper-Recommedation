@@ -24,7 +24,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-xl font-semibold text-foreground">Dashboard</h2>
+        <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
         <p className="text-sm text-muted-foreground">An overview of the research corpus and clustering state.</p>
       </div>
 
@@ -73,7 +73,12 @@ export function DashboardPage() {
 function StatsRow({ overviewQuery }: { overviewQuery: OverviewQuery }) {
   if (overviewQuery.isLoading) {
     return (
-      <section aria-label="Platform statistics" className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <section
+        aria-label="Platform statistics"
+        aria-busy="true"
+        aria-live="polite"
+        className="grid grid-cols-2 gap-3 md:grid-cols-5"
+      >
         <StatCardSkeleton />
         <StatCardSkeleton />
         <StatCardSkeleton />
@@ -156,7 +161,7 @@ function ChartSection({ clustersQuery, overviewQuery }: { clustersQuery: Cluster
 function ClustersSection({ clustersQuery }: { clustersQuery: ClustersQuery }) {
   if (clustersQuery.isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-live="polite">
         <CardSkeleton />
         <CardSkeleton />
         <CardSkeleton />

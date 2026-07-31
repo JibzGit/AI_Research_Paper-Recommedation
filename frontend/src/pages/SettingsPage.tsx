@@ -6,7 +6,7 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-xl font-semibold text-foreground">Settings</h2>
+        <h2 className="text-lg font-semibold text-foreground">Settings</h2>
         <p className="text-sm text-muted-foreground">Application preferences.</p>
       </div>
       <EmptyState

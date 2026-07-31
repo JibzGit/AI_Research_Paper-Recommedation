@@ -16,7 +16,7 @@ export function MembershipProbabilityBadge({ value }: MembershipProbabilityBadge
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="gap-1 border-accent-green/40 text-accent-green">
+        <Badge tabIndex={0} variant="outline" className="gap-1 border-accent-green/40 text-accent-green">
           <Target className="size-3" aria-hidden="true" />
           Avg. membership {percent}%
         </Badge>

@@ -13,7 +13,7 @@ export function UnclusteredBadge() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="shrink-0 gap-1 border-accent-orange/40 text-accent-orange">
+        <Badge tabIndex={0} variant="outline" className="shrink-0 gap-1 border-accent-orange/40 text-accent-orange">
           <Shuffle className="size-3" aria-hidden="true" />
           Unclustered
         </Badge>

@@ -16,7 +16,7 @@ export function FilterChip({ label, onRemove }: FilterChipProps) {
       <button
         type="button"
         onClick={onRemove}
-        className="ml-0.5 rounded-full hover:text-foreground focus-visible:outline-none"
+        className="ml-0.5 rounded-full hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Remove filter: ${label}`}
       >
         <X className="size-3" aria-hidden="true" />

@@ -1,4 +1,5 @@
 import { Atom } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
 
 import { StatusPill } from '@/components/layout/StatusPill'
@@ -12,6 +13,28 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const firstNavLinkRef = useRef<HTMLAnchorElement>(null)
+
+  // Mobile drawer: move focus in on open (screen-reader/keyboard users land
+  // somewhere sensible rather than on whatever was focused behind it), and
+  // let Escape close it like any other dismissible overlay. Desktop's
+  // always-visible sidebar (lg:static) never triggers this -- `open` only
+  // drives the mobile drawer's transform/scrim.
+  useEffect(() => {
+    if (open) {
+      firstNavLinkRef.current?.focus()
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
+
   return (
     <>
       {/* Mobile scrim: closes the drawer on outside click, hidden entirely on lg+ */}
@@ -43,9 +66,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Main navigation">
           <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.map((item, index) => (
               <li key={item.href}>
                 <NavLink
+                  ref={index === 0 ? firstNavLinkRef : undefined}
                   to={item.href}
                   end={item.href === '/'}
                   onClick={onClose}

@@ -28,7 +28,7 @@ export function SimilarityBadge({ value, context = 'query' }: SimilarityBadgePro
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="shrink-0 gap-1 border-accent-purple/40 text-accent-purple">
+        <Badge tabIndex={0} variant="outline" className="shrink-0 gap-1 border-accent-purple/40 text-accent-purple">
           <Radar className="size-3" aria-hidden="true" />
           Semantic similarity {percent}%
         </Badge>

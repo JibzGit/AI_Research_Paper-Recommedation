@@ -1,16 +1,24 @@
 import { Bookmark, Building2, Cpu, Database, Newspaper, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 
-import { ComingSoonPage } from '@/components/common/ComingSoonPage'
 import { AppShell } from '@/components/layout/AppShell'
-import { ClusterDetailPage } from '@/pages/ClusterDetailPage'
-import { ClustersPage } from '@/pages/ClustersPage'
-import { DashboardPage } from '@/pages/DashboardPage'
-import { NoisePapersPage } from '@/pages/NoisePapersPage'
-import { NotFoundPage } from '@/pages/NotFoundPage'
-import { SearchPage } from '@/pages/SearchPage'
-import { SettingsPage } from '@/pages/SettingsPage'
-import { SimilarPapersPage } from '@/pages/SimilarPapersPage'
+
+// AppShell (Sidebar/TopBar) stays eager -- it's the app frame, never
+// route-specific. Every page is code-split: React Router only ever renders
+// one route element at a time, so each page's chunk loads on first visit
+// rather than bloating the initial bundle. All pages use named exports, so
+// each dynamic import resolves that named export into the `default` shape
+// React.lazy() requires.
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })))
+const SimilarPapersPage = lazy(() => import('@/pages/SimilarPapersPage').then((m) => ({ default: m.SimilarPapersPage })))
+const ClustersPage = lazy(() => import('@/pages/ClustersPage').then((m) => ({ default: m.ClustersPage })))
+const ClusterDetailPage = lazy(() => import('@/pages/ClusterDetailPage').then((m) => ({ default: m.ClusterDetailPage })))
+const NoisePapersPage = lazy(() => import('@/pages/NoisePapersPage').then((m) => ({ default: m.NoisePapersPage })))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
+const ComingSoonPage = lazy(() => import('@/components/common/ComingSoonPage').then((m) => ({ default: m.ComingSoonPage })))
 
 function App() {
   return (

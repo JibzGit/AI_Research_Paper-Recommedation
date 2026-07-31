@@ -128,7 +128,12 @@ function PageHeader() {
 function StatsRow({ overviewQuery }: { overviewQuery: OverviewQuery }) {
   if (overviewQuery.isLoading) {
     return (
-      <section aria-label="Cluster statistics" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section
+        aria-label="Cluster statistics"
+        aria-busy="true"
+        aria-live="polite"
+        className="grid grid-cols-2 gap-3 md:grid-cols-4"
+      >
         <StatCardSkeleton />
         <StatCardSkeleton />
         <StatCardSkeleton />
@@ -200,7 +205,7 @@ function ClustersSection({
 }) {
   if (clustersQuery.isLoading) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
         <StatCardSkeleton />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <CardSkeleton />
@@ -241,11 +246,14 @@ function ClustersSection({
       {visibleClusters.length === 0 ? (
         <FilteredEmptyState onClear={onClear} data={data} />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleClusters.map((cluster) => (
-            <ClusterCard key={cluster.cluster_id} cluster={cluster} />
-          ))}
-        </div>
+        <>
+          <h3 className="sr-only">Clusters</h3>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {visibleClusters.map((cluster) => (
+              <ClusterCard key={cluster.cluster_id} cluster={cluster} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

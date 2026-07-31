@@ -56,7 +56,7 @@ export function SelectedPaperSummary({ paper }: SelectedPaperSummaryProps) {
           <button
             type="button"
             onClick={() => setAbstractExpanded((prev) => !prev)}
-            className="ml-1.5 font-medium text-accent-blue hover:underline focus-visible:outline-none"
+            className="ml-1.5 font-medium text-accent-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {abstractExpanded ? 'Show less' : 'Show more'}
           </button>
