@@ -1,0 +1,19 @@
+SQLAlchemy==2.0.36
+alembic==1.14.0
+fastapi==0.141.1
+hdbscan==0.8.44
+httpx==0.28.1
+pgvector==0.5.0
+psycopg2-binary==2.9.10
+pydantic==2.13.4
+python-dotenv==1.0.1
+requests==2.32.3
+umap-learn==0.5.12
+uvicorn[standard]==0.52.0
+# torch: on macOS, PyPI's plain "torch" wheel is CPU/MPS-only already (no
+# CUDA variant exists for macOS), which matches this project's local-dev
+# CPU-only usage. On Linux, the plain PyPI wheel bundles CUDA runtime libs
+# even for CPU-only use (much larger download) -- install from
+# https://download.pytorch.org/whl/cpu instead if deploying there.
+sentence-transformers==5.6.1
+torch==2.13.0

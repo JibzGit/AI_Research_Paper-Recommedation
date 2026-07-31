@@ -1,0 +1,150 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Dark research-dashboard theme. This app is dark-only by design (no light
+ * mode / toggle was requested) -- :root and .dark carry the identical
+ * palette so the app reads correctly regardless of any ancestor class, and
+ * color-scheme is pinned to dark so native form controls match.
+ *
+ * Every color a component uses should come from one of these variables (via
+ * the Tailwind utility classes generated in @theme inline below), never a
+ * hardcoded hex value in component code.
+ */
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-elevated: var(--card-elevated);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Named brand accents -- the four-color system from the design brief,
+     used for badges/charts/stat cards. Kept distinct from --color-primary
+     (the one accent used for interactive/action elements like buttons and
+     focus rings) and --color-destructive (errors). */
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-green: var(--accent-green);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-error: var(--accent-error);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --shadow-panel: var(--shadow-panel);
+  --shadow-panel-lg: var(--shadow-panel-lg);
+}
+
+:root,
+.dark {
+  color-scheme: dark;
+
+  /* Page / surface hierarchy: background < card < card-elevated, each a
+     step lighter so panels read as "raised" without needing heavy borders. */
+  --background: #0a0c12;
+  --foreground: #e7e9f2;
+
+  --card: #12151f;
+  --card-foreground: #e7e9f2;
+  --card-elevated: #191d2a;
+
+  --popover: #171a25;
+  --popover-foreground: #e7e9f2;
+
+  --primary: #8b5cf6;
+  --primary-foreground: #f5f3ff;
+
+  --secondary: #1a1e2b;
+  --secondary-foreground: #e7e9f2;
+
+  --muted: #171a25;
+  --muted-foreground: #8f96ab;
+
+  --accent: #1c2233;
+  --accent-foreground: #e7e9f2;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #fef2f2;
+
+  --border: #232838;
+  --input: #232838;
+  --ring: #8b5cf6;
+
+  /* Named brand accents */
+  --accent-purple: #a78bfa;
+  --accent-blue: #60a5fa;
+  --accent-green: #4ade80;
+  --accent-orange: #fb923c;
+  --accent-error: #f87171;
+
+  --chart-1: var(--accent-purple);
+  --chart-2: var(--accent-blue);
+  --chart-3: var(--accent-green);
+  --chart-4: var(--accent-orange);
+  --chart-5: #f472b6;
+
+  --sidebar: #070810;
+  --sidebar-foreground: #c7cbdb;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #f5f3ff;
+  --sidebar-accent: #171a25;
+  --sidebar-accent-foreground: #e7e9f2;
+  --sidebar-border: #1c2130;
+  --sidebar-ring: #8b5cf6;
+
+  --radius: 0.75rem;
+
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-panel-lg: 0 4px 8px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
