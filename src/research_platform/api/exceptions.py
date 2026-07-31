@@ -5,6 +5,11 @@ from fastapi.responses import JSONResponse
 
 from research_platform.clustering.queries import ClusterNotFoundError
 from research_platform.embeddings.recommend import PaperNotFoundError
+from research_platform.trends.api_queries import (
+    TrendEntityNotFoundError,
+    TrendResultsUnavailableError,
+    TrendRunNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +20,21 @@ async def paper_not_found_handler(request: Request, exc: PaperNotFoundError) -> 
 
 async def cluster_not_found_handler(request: Request, exc: ClusterNotFoundError) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
+
+
+async def trend_run_not_found_handler(request: Request, exc: TrendRunNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
+
+
+async def trend_entity_not_found_handler(request: Request, exc: TrendEntityNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
+
+
+async def trend_results_unavailable_handler(request: Request, exc: TrendResultsUnavailableError) -> JSONResponse:
+    """503, not 404: a successful trend run has never completed yet -- the
+    resource isn't missing, the feature isn't ready. Same distinction
+    /health already draws between "unreachable" (503) and "not found"."""
+    return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": str(exc)})
 
 
 async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
@@ -37,5 +57,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(PaperNotFoundError, paper_not_found_handler)
     app.add_exception_handler(ClusterNotFoundError, cluster_not_found_handler)
+    app.add_exception_handler(TrendRunNotFoundError, trend_run_not_found_handler)
+    app.add_exception_handler(TrendEntityNotFoundError, trend_entity_not_found_handler)
+    app.add_exception_handler(TrendResultsUnavailableError, trend_results_unavailable_handler)
     app.add_exception_handler(ValueError, value_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

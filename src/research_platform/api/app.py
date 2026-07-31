@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from research_platform import config
 from research_platform.api.exceptions import register_exception_handlers
-from research_platform.api.routes import categories, clusters, health, papers, stats
+from research_platform.api.routes import categories, clusters, health, papers, stats, trends
 
 app = FastAPI(title="Research Platform API", version="0.1.0")
 
@@ -23,5 +23,6 @@ app.include_router(papers.router, prefix="/api/v1")
 app.include_router(clusters.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(categories.router, prefix="/api/v1")
+app.include_router(trends.router, prefix="/api/v1")
 
 register_exception_handlers(app)

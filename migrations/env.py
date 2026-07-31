@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -18,7 +19,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# ALEMBIC_DATABASE_URL_OVERRIDE lets a caller (currently only
+# tests/test_trend_migration.py) point migrations at a database other than
+# DATABASE_URL -- e.g. a dedicated, guard-checked test database, so a
+# destructive downgrade/upgrade round trip never touches the development
+# database. Never set in normal usage (CLI `alembic upgrade head`,
+# `--autogenerate`, the real deployment flow), so DATABASE_URL remains the
+# unconditional default everywhere else.
+config.set_main_option("sqlalchemy.url", os.environ.get("ALEMBIC_DATABASE_URL_OVERRIDE", DATABASE_URL))
 
 target_metadata = Base.metadata
 
