@@ -1,0 +1,74 @@
+# Render Blueprint for the AI Research Intelligence Platform.
+#
+# Deliberately defines ONLY two services -- a Python web service (FastAPI
+# backend) and a static site (Vite frontend). No `databases:` block: the
+# production database is an external Neon PostgreSQL (free tier), not a
+# Render-managed Postgres instance, because Render's own free Postgres plan
+# auto-deletes 30 days after creation. DATABASE_URL is configured manually
+# in the Render dashboard (sync: false below) using Neon's connection
+# string -- it must never be written into this file.
+#
+# autoDeploy is off for both services until the first deployment has been
+# manually validated end-to-end; flip to `true` afterward if continuous
+# deployment from `main` is wanted.
+
+services:
+  - type: web
+    name: ai-research-api
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: false
+    # torch is installed separately from PyTorch's CPU-only wheel index
+    # first -- the plain PyPI wheel bundles CUDA runtime libraries on
+    # Linux even for CPU-only use, which is unnecessary weight on a
+    # free-tier instance. requirements-prod.txt is a strict subset of
+    # requirements.txt: it excludes hdbscan/umap-learn (used only by the
+    # offline clustering pipeline in scripts/, never imported by the API)
+    # and torch itself (installed here instead).
+    buildCommand: >-
+      pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 &&
+      pip install -r requirements-prod.txt &&
+      pip install .
+    # Runs after buildCommand, before startCommand, on every deploy --
+    # applies any new migrations before traffic is served. Never a
+    # downgrade; alembic upgrade only ever moves forward.
+    preDeployCommand: alembic upgrade head
+    # $PORT is supplied by Render at runtime -- never hardcoded.
+    startCommand: uvicorn research_platform.api.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      # Neon's private/pooled connection string. Set manually in the
+      # Render dashboard -- never committed here.
+      - key: DATABASE_URL
+        sync: false
+      # Comma-separated list of allowed origins. Set to the deployed
+      # static site's exact https:// URL once known (see render.yaml's
+      # sibling service below) -- never a wildcard.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: ai-research-platform
+    runtime: static
+    region: oregon
+    branch: main
+    autoDeploy: false
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    # staticPublishPath is relative to the repo root even when rootDir is
+    # set, per Render's own Blueprint reference.
+    staticPublishPath: frontend/dist
+    envVars:
+      # The deployed FastAPI service's exact https:// URL. Build-time only
+      # (Vite inlines it into the bundle) -- set manually in the Render
+      # dashboard once the backend's URL is known, then trigger a rebuild.
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

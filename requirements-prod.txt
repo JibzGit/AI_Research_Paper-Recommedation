@@ -1,0 +1,27 @@
+# Production dependencies for the FastAPI web service only -- a strict
+# subset of requirements.txt. Verified by walking the actual import graph
+# reachable from src/research_platform/api/app.py: hdbscan and umap-learn
+# are used exclusively by the offline clustering pipeline
+# (clustering/pipeline.py, run via scripts/, never imported by any API
+# route) and httpx/requests are used only by the ingestion/enrichment
+# pipelines (arxiv/OpenAlex/Semantic Scholar clients) -- none of that code
+# is reachable from the deployed web service. Keeping this list minimal
+# matters here specifically because torch + sentence-transformers are
+# already a heavy, RAM-constrained dependency on a free-tier instance;
+# every additional package increases build time and install size for no
+# runtime benefit.
+#
+# torch is intentionally NOT pinned here -- install it separately from
+# PyTorch's CPU-only wheel index (https://download.pytorch.org/whl/cpu)
+# before installing this file, to avoid pulling the much larger
+# CUDA-bundled Linux wheel from PyPI for a CPU-only deployment. See the
+# buildCommand in render.yaml.
+SQLAlchemy==2.0.36
+alembic==1.14.0
+fastapi==0.141.1
+pgvector==0.5.0
+psycopg2-binary==2.9.10
+pydantic==2.13.4
+python-dotenv==1.0.1
+uvicorn[standard]==0.52.0
+sentence-transformers==5.6.1
