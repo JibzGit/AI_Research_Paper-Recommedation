@@ -28,6 +28,7 @@ services:
     # offline clustering pipeline in scripts/, never imported by the API)
     # and torch itself (installed here instead).
     buildCommand: >-
+      pip install "typing-extensions>=4.10,<5" &&
       pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 &&
       pip install -r requirements-prod.txt &&
       pip install .
