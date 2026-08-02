@@ -31,10 +31,12 @@ services:
       pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 &&
       pip install -r requirements-prod.txt &&
       pip install .
-    # Runs after buildCommand, before startCommand, on every deploy --
-    # applies any new migrations before traffic is served. Never a
-    # downgrade; alembic upgrade only ever moves forward.
-    preDeployCommand: alembic upgrade head
+    # preDeployCommand is not supported on Render's free tier -- the Neon
+    # production database is already migrated to the current Alembic head
+    # (6e0681b31044) for this initial deployment, so no migration command
+    # runs here. Future schema changes need a manual `alembic upgrade
+    # head` run against DATABASE_URL before deploying, until this moves
+    # to a plan that supports preDeployCommand.
     # $PORT is supplied by Render at runtime -- never hardcoded.
     startCommand: uvicorn research_platform.api.app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
@@ -54,7 +56,6 @@ services:
   - type: web
     name: ai-research-platform
     runtime: static
-    region: oregon
     branch: main
     autoDeploy: false
     rootDir: frontend
