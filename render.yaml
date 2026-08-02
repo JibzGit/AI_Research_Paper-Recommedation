@@ -61,9 +61,11 @@ services:
     autoDeploy: false
     rootDir: frontend
     buildCommand: npm ci && npm run build
-    # staticPublishPath is relative to the repo root even when rootDir is
-    # set, per Render's own Blueprint reference.
-    staticPublishPath: frontend/dist
+    # staticPublishPath is relative to rootDir when rootDir is set --
+    # confirmed by the actual Render deploy failure this fixed
+    # ("Publish directory frontend/dist does not exist", since rootDir:
+    # frontend made frontend/dist resolve to frontend/frontend/dist).
+    staticPublishPath: dist
     envVars:
       # The deployed FastAPI service's exact https:// URL. Build-time only
       # (Vite inlines it into the bundle) -- set manually in the Render
