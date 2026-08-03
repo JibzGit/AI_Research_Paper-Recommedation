@@ -1,0 +1,83 @@
+# Cloud Run production image for the FastAPI backend (ai-research-api).
+#
+# Separate from any future generic/local Dockerfile on purpose -- this repo
+# has no existing Dockerfile today (local dev uses docker-compose.yml for
+# Postgres only, and the app itself runs directly via uvicorn in a venv).
+# Named .cloudrun so it's unambiguous this is Cloud Run's deploy artifact,
+# not a general-purpose image.
+#
+# No secret or credential is embedded anywhere below: DATABASE_URL is
+# supplied at container-start time via Cloud Run + Secret Manager, never
+# baked into a layer, an ENV default, a build arg, or the model manifest.
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# --- Layer 1: install dependencies -----------------------------------------
+# Only the files pip install actually needs are copied first, so this
+# expensive layer (torch + sentence-transformers) is cache-invalidated only
+# when a dependency or source file changes -- not on every unrelated repo
+# edit (docs, migrations, etc., copied later below).
+#
+# Install order matches the order already verified against a real Render
+# build failure: typing-extensions first (torch's own dependency
+# resolution needs it, but --index-url below restricts pip to PyTorch's
+# CPU wheel index alone for that one command, which doesn't carry
+# typing-extensions -- pre-installing it from normal PyPI first means the
+# CPU-index install sees it already satisfied). requirements-prod.txt is a
+# strict subset of the repo's requirements.txt -- see that file's own
+# top-of-file comment for exactly what's excluded (hdbscan/umap-learn,
+# pipeline-only) and why. torch is intentionally absent from
+# requirements-prod.txt and installed here instead, from PyTorch's CPU-only
+# wheel index, so Linux doesn't pull the much larger CUDA-bundled PyPI
+# wheel for a CPU-only deployment.
+COPY requirements-prod.txt pyproject.toml ./
+COPY src/ ./src/
+
+RUN pip install --no-cache-dir "typing-extensions>=4.10,<5" && \
+    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 && \
+    pip install --no-cache-dir -r requirements-prod.txt && \
+    pip install --no-cache-dir .
+
+# --- Layer 2: bake the pinned embedding model -------------------------------
+# Runs BEFORE the HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE env vars are set
+# below -- this is the one deliberate network call in the whole build, a
+# real download of the exact pinned revision (never a floating "main" ref;
+# see scripts/bake_embedding_model.py for the same immutable commit sha
+# config.py itself pins). Writes BAKE_MANIFEST.json (non-secret: model
+# name, revision, dimension, bake timestamp) alongside the saved model for
+# auditability.
+COPY scripts/bake_embedding_model.py ./scripts/bake_embedding_model.py
+RUN python3 scripts/bake_embedding_model.py --output-dir /opt/models/bge-base-en-v1.5
+
+# --- Layer 3: the rest of the repository ------------------------------------
+# Everything .dockerignore doesn't exclude (migrations/, alembic.ini,
+# scripts/, tests/, docs/, etc.) -- copied last so it never invalidates the
+# expensive layers above. .dockerignore is the actual secret/junk boundary
+# here, not this COPY's scope: .env*, backups/, *.dump, node_modules/,
+# frontend/dist/, __pycache__/, and model/IDE caches are all excluded there.
+COPY . .
+
+# --- Runtime configuration ---------------------------------------------------
+# SEMANTIC_SEARCH_MODE=local + EMBEDDING_MODEL_LOCAL_PATH point the
+# embeddings/model.py loader at the baked directory above instead of the
+# Hugging Face Hub (see that module's SEMANTIC_SEARCH_MODE branch).
+# HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE=1 are a second, independent
+# guarantee against any accidental network call at runtime, on top of
+# local_files_only=True already passed in code.
+ENV SEMANTIC_SEARCH_MODE=local \
+    EMBEDDING_MODEL_LOCAL_PATH=/opt/models/bge-base-en-v1.5 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    PYTHONUNBUFFERED=1
+
+# Exec-form CMD (JSON array), with an inner `exec` so uvicorn -- not `sh`
+# -- ends up as PID 1 and receives SIGTERM directly for a clean Cloud Run
+# shutdown. The shell wrapper is only there for ${PORT:-8080} expansion;
+# `exec` replaces the shell process rather than spawning a child of it.
+# $PORT is supplied by Cloud Run at runtime -- never hardcoded. One worker,
+# matching the process-level lazy-singleton model loader (embeddings/
+# model.py): multiple workers would mean multiple model copies in the same
+# 2Gi memory budget.
+CMD ["sh", "-c", "exec uvicorn research_platform.api.app:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]

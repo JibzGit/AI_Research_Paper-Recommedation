@@ -75,6 +75,16 @@ EMBEDDING_QUERY_PREFIX = os.environ.get(
     "EMBEDDING_QUERY_PREFIX", "Represent this sentence for searching relevant passages: "
 )
 
+# SEMANTIC_SEARCH_MODE controls where the model loads from. Unset (default,
+# "") preserves existing local/dev behavior exactly: SentenceTransformer
+# downloads/caches EMBEDDING_MODEL_NAME @ EMBEDDING_MODEL_REVISION from the
+# Hugging Face Hub. "local" is for containerized deployments (Cloud Run)
+# that bake the model into the image at build time -- see
+# embeddings/model.py -- and load it from EMBEDDING_MODEL_LOCAL_PATH
+# instead, with no network call at model-load time.
+SEMANTIC_SEARCH_MODE = os.environ.get("SEMANTIC_SEARCH_MODE", "").strip().lower()
+EMBEDDING_MODEL_LOCAL_PATH = os.environ.get("EMBEDDING_MODEL_LOCAL_PATH", "").strip()
+
 _FULL_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -104,6 +114,15 @@ def validate_embedding_config() -> None:
 
     if not EMBEDDING_DEVICE or not EMBEDDING_DEVICE.strip():
         raise ValueError("EMBEDDING_DEVICE must not be empty")
+
+    if SEMANTIC_SEARCH_MODE not in ("", "local"):
+        raise ValueError(
+            f"SEMANTIC_SEARCH_MODE must be empty (Hugging Face Hub download) or 'local' "
+            f"(baked local path); got {SEMANTIC_SEARCH_MODE!r}"
+        )
+
+    if SEMANTIC_SEARCH_MODE == "local" and not EMBEDDING_MODEL_LOCAL_PATH:
+        raise ValueError("EMBEDDING_MODEL_LOCAL_PATH must be set when SEMANTIC_SEARCH_MODE=local")
 
 
 # --- LLM cluster labeling ---------------------------------------------------

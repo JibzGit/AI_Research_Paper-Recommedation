@@ -1,0 +1,28 @@
+# Cloud Build configuration for the ai-research-api Cloud Run backend.
+#
+# Builds Dockerfile.cloudrun explicitly for linux/amd64 -- Cloud Run
+# requires amd64, and the image built locally during validation (on this
+# Mac's arm64 Docker Desktop) is linux/arm64 and must never be pushed or
+# deployed. This is the artifact that actually ships; the local arm64
+# build was validation-only.
+#
+# No secret of any kind is defined, referenced, or substituted here.
+# DATABASE_URL is supplied to the running Cloud Run service at deploy time
+# via Secret Manager (see the deployment command, not this file) -- Cloud
+# Build never sees it, and it is never a build arg, substitution variable,
+# or baked-in value.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --platform=linux/amd64
+      - --file
+      - Dockerfile.cloudrun
+      - --tag
+      - ${_IMAGE_URI}
+      - .
+
+images:
+  - ${_IMAGE_URI}
+
+timeout: 1800s

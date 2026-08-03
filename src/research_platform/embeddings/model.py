@@ -1,8 +1,21 @@
-from sentence_transformers import SentenceTransformer
+import os
+from typing import TYPE_CHECKING
 
 from research_platform import config
 
-_model: SentenceTransformer | None = None
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+
+# sentence_transformers (and, transitively, torch) is deliberately NOT
+# imported at module level -- only inside _load_model(), the first time a
+# real encode actually happens. Importing research_platform.api.app (which
+# imports this module transitively, to reach encode_query/encode_documents)
+# must not pay torch's import cost just to serve /health, /api/v1/clusters,
+# /api/v1/trends/*, etc. -- most requests never touch the embedding model at
+# all, and on Cloud Run (min instances 0) that's real cold-start latency for
+# no benefit. See test_importing_api_app_does_not_load_torch in
+# tests/test_embedding_model.py.
+_model: "SentenceTransformer | None" = None
 
 
 class EmbeddingModelError(Exception):
@@ -11,14 +24,42 @@ class EmbeddingModelError(Exception):
 
 class EmbeddingModelLoadError(EmbeddingModelError):
     """Raised when the pinned model fails to load (bad revision, no network
-    on first download, corrupted cache, etc). Wraps the original exception
-    rather than swallowing it."""
+    on first download, corrupted cache, etc), or when SEMANTIC_SEARCH_MODE
+    is "local" but EMBEDDING_MODEL_LOCAL_PATH is missing/misconfigured.
+    Wraps the original exception rather than swallowing it."""
 
 
-def _load_model() -> SentenceTransformer:
+def _load_model() -> "SentenceTransformer":
     global _model
     if _model is not None:
         return _model
+
+    from sentence_transformers import SentenceTransformer
+
+    if config.SEMANTIC_SEARCH_MODE == "local":
+        if not os.path.isdir(config.EMBEDDING_MODEL_LOCAL_PATH):
+            raise EmbeddingModelLoadError(
+                "SEMANTIC_SEARCH_MODE=local but EMBEDDING_MODEL_LOCAL_PATH does not exist or "
+                f"is not a directory: {config.EMBEDDING_MODEL_LOCAL_PATH!r}"
+            )
+        try:
+            # A baked local path is a self-contained snapshot -- no HF Hub
+            # revision concept applies. local_files_only=True guarantees no
+            # network call happens here even if the path merely looks like
+            # a HF cache layout -- Cloud Run's baked image has no need for
+            # (and, depending on network policy, may not have) egress.
+            _model = SentenceTransformer(
+                config.EMBEDDING_MODEL_LOCAL_PATH,
+                device=config.EMBEDDING_DEVICE,
+                local_files_only=True,
+            )
+        except Exception as exc:
+            raise EmbeddingModelLoadError(
+                f"failed to load baked embedding model from {config.EMBEDDING_MODEL_LOCAL_PATH!r} "
+                f"on device {config.EMBEDDING_DEVICE}: {exc}"
+            ) from exc
+        return _model
+
     try:
         _model = SentenceTransformer(
             config.EMBEDDING_MODEL_NAME,
@@ -33,7 +74,7 @@ def _load_model() -> SentenceTransformer:
     return _model
 
 
-def get_model() -> SentenceTransformer:
+def get_model() -> "SentenceTransformer":
     """Loads the pinned model once per process and reuses it on every
     subsequent call -- model loading is expensive and the model is
     stateless/thread-safe for encoding, so there's no reason to reload it."""

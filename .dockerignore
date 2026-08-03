@@ -1,0 +1,54 @@
+# Version control
+.git
+.gitignore
+
+# Secrets / local env files -- never enter a build context or image layer
+.env
+.env.*
+.env.deploy.local
+
+# Local database backups/dumps -- may contain full corpus/embedding data
+backups/
+*.dump
+*.sql
+*.sql.gz
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python build/test/type-check caches and artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Frontend -- this image serves only the FastAPI backend
+frontend/node_modules/
+frontend/dist/
+
+# Local Hugging Face / model caches -- the image bakes its own pinned
+# model via scripts/bake_embedding_model.py; any local cache dir must never
+# be copied in, since it could be stale, corrupted, or a different revision
+.cache/
+**/.cache/huggingface/
+**/huggingface/
+
+# IDE / editor metadata
+.vscode/
+.idea/
+.DS_Store
+.claude/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+*.log

@@ -7,6 +7,8 @@ no model download, no database writes. Run directly:
     python3 tests/test_embedding_config.py
 """
 import re
+import subprocess
+import sys
 from unittest.mock import patch
 
 from research_platform import config
@@ -136,6 +138,86 @@ def test_query_prefix_is_distinct_and_only_intended_for_queries():
     print("PASS: EMBEDDING_QUERY_PREFIX is a distinct, non-empty constant reserved for queries only")
 
 
+# --- SEMANTIC_SEARCH_MODE / EMBEDDING_MODEL_LOCAL_PATH ----------------------
+#
+# validate_embedding_config() operates on the already-loaded, already-
+# normalized module constants, so patch.object(config, ...) (auto-restoring,
+# no shared-state leakage) is enough to test its logic directly -- same
+# pattern the rest of this file already uses. Only the env-var-parsing
+# behavior itself (trimming/lowercasing at import time) needs a fresh
+# subprocess, since that code only runs once, at module import.
+
+
+def test_semantic_search_mode_unset_or_empty_is_accepted_and_preserves_hf_hub_behavior():
+    with patch.object(config, "SEMANTIC_SEARCH_MODE", ""):
+        config.validate_embedding_config()  # must not raise
+    print("PASS: SEMANTIC_SEARCH_MODE unset/empty is accepted (existing Hugging Face Hub download behavior)")
+
+
+def test_semantic_search_mode_local_with_valid_path_is_accepted():
+    with patch.object(config, "SEMANTIC_SEARCH_MODE", "local"), patch.object(
+        config, "EMBEDDING_MODEL_LOCAL_PATH", "/opt/models/bge-base-en-v1.5"
+    ):
+        config.validate_embedding_config()  # must not raise
+    print("PASS: SEMANTIC_SEARCH_MODE=local with a non-empty EMBEDDING_MODEL_LOCAL_PATH is accepted")
+
+
+def test_semantic_search_mode_local_with_no_path_raises_clear_error():
+    with patch.object(config, "SEMANTIC_SEARCH_MODE", "local"), patch.object(
+        config, "EMBEDDING_MODEL_LOCAL_PATH", ""
+    ):
+        try:
+            config.validate_embedding_config()
+            raised = False
+        except ValueError as exc:
+            raised = True
+            message = str(exc)
+    assert raised, "expected ValueError for SEMANTIC_SEARCH_MODE=local with no EMBEDDING_MODEL_LOCAL_PATH"
+    assert "EMBEDDING_MODEL_LOCAL_PATH" in message
+    print("PASS: SEMANTIC_SEARCH_MODE=local with no path fails clearly, mentioning EMBEDDING_MODEL_LOCAL_PATH")
+
+
+def test_semantic_search_mode_unsupported_value_raises_clear_error():
+    for bad_mode in ("disabled", "remote", "invalid"):
+        with patch.object(config, "SEMANTIC_SEARCH_MODE", bad_mode):
+            try:
+                config.validate_embedding_config()
+                raised = False
+            except ValueError as exc:
+                raised = True
+                message = str(exc)
+        assert raised, f"expected ValueError for unsupported SEMANTIC_SEARCH_MODE={bad_mode!r}"
+        assert "SEMANTIC_SEARCH_MODE" in message
+    print("PASS: unsupported SEMANTIC_SEARCH_MODE values fail clearly, mentioning SEMANTIC_SEARCH_MODE")
+
+
+def test_semantic_search_mode_env_var_is_trimmed_and_lowercased():
+    """SEMANTIC_SEARCH_MODE is read once, at module-import time, via
+    os.environ.get(...).strip().lower() -- verifying the actual
+    environment-variable-parsing behavior (not just validate_embedding_
+    config()'s logic on an already-normalized value, covered above) needs a
+    fresh interpreter with the env var actually set before import. An
+    isolated subprocess never mutates this test process's os.environ or
+    reloads the shared config module object in sys.modules, so nothing
+    leaks into later tests."""
+    script = (
+        "import os\n"
+        "os.environ['SEMANTIC_SEARCH_MODE'] = ' LOCAL '\n"
+        "os.environ.setdefault('DATABASE_URL', 'postgresql+psycopg2://user:pass@localhost/db')\n"
+        "from research_platform import config\n"
+        "print('MODE=' + repr(config.SEMANTIC_SEARCH_MODE))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"subprocess failed (exit {result.returncode}): {result.stderr}"
+    assert "MODE='local'" in result.stdout, result.stdout
+    print("PASS: SEMANTIC_SEARCH_MODE env var is trimmed and lowercased at import time (' LOCAL ' -> 'local')")
+
+
 if __name__ == "__main__":
     test_defaults_load_correctly()
     test_revision_is_a_real_immutable_commit_sha_not_a_placeholder()
@@ -148,4 +230,9 @@ if __name__ == "__main__":
     test_validate_rejects_non_positive_batch_size()
     test_validate_rejects_empty_device()
     test_query_prefix_is_distinct_and_only_intended_for_queries()
+    test_semantic_search_mode_unset_or_empty_is_accepted_and_preserves_hf_hub_behavior()
+    test_semantic_search_mode_local_with_valid_path_is_accepted()
+    test_semantic_search_mode_local_with_no_path_raises_clear_error()
+    test_semantic_search_mode_unsupported_value_raises_clear_error()
+    test_semantic_search_mode_env_var_is_trimmed_and_lowercased()
     print("\nALL TESTS PASSED")

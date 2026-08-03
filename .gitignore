@@ -13,3 +13,7 @@ build/
 backups/
 *.dump
 *.sql.gz
+
+# Local deployment secrets
+.env.deploy.local
+.env.cloudrun.local
