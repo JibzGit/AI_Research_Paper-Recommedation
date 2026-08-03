@@ -1,14 +1,40 @@
 # AI Research Intelligence and Paper Recommendation Platform
 
-Phase 1 status: local database foundation, plus a paced arXiv ingestion
-pipeline (sample ingestion, adaptive historical-backfill planning, and
-quota-limited execution). Embeddings, pgvector, clustering, RAG, and any
-frontend are not implemented yet.
+A research-paper platform built on a paced arXiv ingestion pipeline, BGE
+embeddings + pgvector semantic search, HDBSCAN/UMAP clustering with
+LLM-generated cluster labels, and Historical Cohort Comparison trend
+analysis, served by a FastAPI backend and a React/Vite frontend.
+
+## Production deployment
+
+| Component | Platform | URL |
+|---|---|---|
+| Frontend (React/Vite, static) | Render Static Site (`ai-research-platform`) | https://ai-research-platform-2qyx.onrender.com |
+| Backend (FastAPI) | Google Cloud Run (`ai-research-api`, project `ai-research-platform-504405`, region `us-west1`) | https://ai-research-api-vecbq5svfq-uw.a.run.app |
+| Database | Neon PostgreSQL (external, pgvector extension) | not publicly exposed |
+
+The backend was originally deployed to Render as well, but Render's free
+web-service plan caps memory at 512MB, which is not enough to load the
+`BAAI/bge-base-en-v1.5` embedding model (CPU-only PyTorch + the model
+weights need roughly 700MB-1GB once loaded) -- it OOM-crashed repeatedly in
+production. The backend now runs on Cloud Run (1 vCPU, 2GiB memory,
+concurrency 1, min/max instances 0/1), with the embedding model baked into
+the container image at build time (`Dockerfile.cloudrun`,
+`scripts/bake_embedding_model.py`) so there's no Hugging Face Hub download
+at request time. See `render.yaml` (frontend only now) and
+`cloudbuild.cloudrun.yaml` / `Dockerfile.cloudrun` (backend) for the exact
+deployment configuration.
+
+The database is Neon (free tier) rather than a Render-managed Postgres
+instance, because Render's own free Postgres plan auto-deletes 30 days
+after creation. `DATABASE_URL` is supplied to Cloud Run via Google Secret
+Manager (`neon-database-url`), never committed or baked into any image.
 
 ## Prerequisites
 
-- Docker (with Compose v2)
+- Docker (with Compose v2) -- for local Postgres
 - Python 3.10+
+- Node.js 20+ -- for the frontend
 
 ## 1. Configure environment
 
@@ -48,10 +74,8 @@ source .venv/bin/activate
 alembic upgrade head
 ```
 
-This applies the Phase 1 baseline schema (14 tables) plus the additive
-pacing/backfill/quota migration (3 more tables, 17 total). Migration config
-lives in `alembic.ini` / `migrations/env.py`, which reads `DATABASE_URL` from
-`.env` via `research_platform.config`.
+Migration config lives in `alembic.ini` / `migrations/env.py`, which reads
+`DATABASE_URL` from `.env` via `research_platform.config`.
 
 To inspect the applied schema directly:
 
@@ -69,16 +93,39 @@ python3 scripts/run_sample_ingestion.py --max-results 25
 # plan-only: generate adaptive backfill windows, no papers inserted
 python3 scripts/plan_backfill.py --start-date 2016-01-01 --end-date 2016-04-01
 
-# execute mode: quota-limited new+historical ingestion (capped at 100 for now)
+# execute mode: quota-limited new+historical ingestion
 python3 scripts/run_quota_ingestion.py --quota 100 --page-size 200
 ```
 
 All arXiv API access is paced through `api_request_states` (shared across
 processes/restarts) and protected by a Postgres advisory lock so only one
 collector runs at a time. See `src/research_platform/ingestion/` for the
-client, planner, and orchestrator.
+client, planner, and orchestrator. Embeddings (`scripts/run_embedding_backfill.py`),
+clustering (`scripts/run_paper_clustering.py`), and trend analysis
+(`scripts/run_trend_analysis.py`) are separate pipeline scripts, run after
+ingestion.
 
-## 6. Stopping / resetting
+## 6. Run the API locally
+
+```bash
+source .venv/bin/activate
+uvicorn research_platform.api.app:app --reload
+```
+
+Serves on `http://127.0.0.1:8000`; interactive docs at `/docs`.
+
+## 7. Run the frontend locally
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # VITE_API_BASE_URL defaults to http://127.0.0.1:8000
+npm run dev
+```
+
+Serves on `http://localhost:5173`.
+
+## 8. Stopping / resetting
 
 ```bash
 docker compose down          # stop, keep data volume
@@ -89,33 +136,40 @@ docker compose down -v       # stop and delete all data (destructive)
 
 ```
 docker-compose.yml          Postgres-only local service
-requirements.txt            Python dependencies
+requirements.txt            Python dependencies (full, including ingestion/clustering)
+requirements-prod.txt       Strict subset used by the deployed API (excludes hdbscan/umap-learn)
 pyproject.toml              Editable install config for src/ layout
 alembic.ini                 Alembic configuration
 migrations/                 Alembic environment and versioned migrations
+render.yaml                 Render Blueprint -- frontend static site only
+Dockerfile.cloudrun         Cloud Run backend image (CPU-only torch, baked embedding model)
+cloudbuild.cloudrun.yaml    Cloud Build config -- builds Dockerfile.cloudrun for linux/amd64
+.dockerignore / .gcloudignore  Build-context exclusions (secrets, backups, caches)
 scripts/
   run_sample_ingestion.py   Small controlled arXiv sample (<=25 papers)
   plan_backfill.py          Plan-only adaptive backfill window generation
   run_quota_ingestion.py    Execute mode: quota-limited new+historical ingestion
+  run_embedding_backfill.py Generates embeddings for papers missing them
+  run_paper_clustering.py   HDBSCAN/UMAP clustering + LLM cluster labeling
+  run_trend_analysis.py     Historical Cohort Comparison trend pipeline
+  bake_embedding_model.py   Bakes the pinned embedding model into the Cloud Run image
 src/research_platform/
-  config.py                 DATABASE_URL + arXiv pacing/backfill config from .env
-  db/base.py                SQLAlchemy declarative Base
-  db/session.py             Engine + sessionmaker
-  db/models.py               All 17 ORM models
-  ingestion/
-    arxiv_client.py         Paced HTTP client, retry/backoff, date-range + preflight queries
-    normalize.py             Atom entry -> normalized fields, version-row builder
-    upsert.py                 Idempotent canonical-paper upsert
-    run_tracker.py           ingestion_runs/ingestion_failures bookkeeping
-    pacing.py                 Persistent (DB-backed) request pacing
-    advisory_lock.py          Single-worker Postgres advisory lock
-    backfill_planner.py       Adaptive monthly/weekly/daily window planning
-    quota_orchestrator.py     Quota allocation, paginated execution, checkpointing
-    arxiv_job.py              Sample ingestion job (25-paper cap)
+  config.py                 DATABASE_URL, embedding, CORS, and pacing/backfill config from env
+  api/                      FastAPI app, routes, schemas
+  db/                       SQLAlchemy Base, session, ORM models
+  ingestion/                arXiv client, pacing, backfill planning, quota orchestration
+  embeddings/               BGE model loader, semantic search, similar-papers
+  clustering/               HDBSCAN/UMAP pipeline, LLM labeling, read queries
+  trends/                   Historical Cohort Comparison pipeline, classification, scoring
+  enrichment/                OpenAlex / Semantic Scholar enrichment
+frontend/                   React + TypeScript + Vite + TanStack Query dashboard
 ```
 
 ## What is intentionally not here yet
 
-OpenAlex/Semantic Scholar enrichment, embeddings, pgvector, clustering
-(HDBSCAN/UMAP), RAG, and any frontend. The full 2016-present historical
-backfill has not been run -- only a controlled 100-paper quota test.
+RAG (retrieval-augmented generation over paper full text) is not
+implemented -- the platform never downloads, stores, or parses PDF
+content; "Open PDF" links point directly to arXiv. The full 2016-present
+historical backfill has not been run -- the current corpus is a controlled
+169-paper sample (two ingestion cohorts: January 2016 and July 2026, used
+as the comparison/recent cohorts for trend analysis).
