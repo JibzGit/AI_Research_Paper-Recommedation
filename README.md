@@ -132,13 +132,28 @@ docker compose down          # stop, keep data volume
 docker compose down -v       # stop and delete all data (destructive)
 ```
 
+## Run backend tests
+
+Requires the local Postgres from step 2 to be running (some tests connect to
+`TEST_DATABASE_URL` from `.env`).
+
+```bash
+source .venv/bin/activate
+pip install -e ".[test]"
+pytest tests/
+```
+
+`pytest` is the only test dependency (`pyproject.toml`'s `test` extra) -- the
+suite is entirely synchronous, built on FastAPI's `TestClient`, so no async
+test plugin is needed.
+
 ## Project layout
 
 ```
 docker-compose.yml          Postgres-only local service
 requirements.txt            Python dependencies (full, including ingestion/clustering)
 requirements-prod.txt       Strict subset used by the deployed API (excludes hdbscan/umap-learn)
-pyproject.toml              Editable install config for src/ layout
+pyproject.toml              Editable install config for src/ layout; `[test]` extra provides pytest
 alembic.ini                 Alembic configuration
 migrations/                 Alembic environment and versioned migrations
 render.yaml                 Render Blueprint -- frontend static site only

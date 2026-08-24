@@ -9,3 +9,6 @@ requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1"]
